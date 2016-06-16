@@ -6,7 +6,6 @@ sourceSets {
 }
 
 dependencies {
-	compile "com.badlogicgames.gdx:gdx:$gdx_version"
-	compile "com.badlogicgames.gdx:gdx-backend-lwjgl:$gdx_version"
   	compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    testCompile "junit:junit:4.11"
 }
