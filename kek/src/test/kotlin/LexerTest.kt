@@ -157,7 +157,21 @@ class LexerTest {
     }
 
     @Test
-    fun testNumLiterals() {
-
+    fun testKeywords() {
+        val buffer = StringBuffer()
+        val expected = mutableListOf<TokenType>()
+        for (t in TokenType.values().filter { !it.keyword.isEmpty() }) {
+            buffer.append(t.keyword)
+            buffer.append(" ")
+            expected.add(t)
+        }
+        expected.add(TokenType.EOF)
+        var tokens = tokenize(buffer.toString())
+        var i = 0
+        assertEquals(expected.size, tokens.size)
+        for(e in expected) {
+            val t = tokens.get(i++)
+            assertEquals(e, t.type)
+        }
     }
 }

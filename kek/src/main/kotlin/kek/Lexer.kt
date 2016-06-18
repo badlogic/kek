@@ -17,10 +17,13 @@ enum class TokenType(val keyword: String = "", val hasOverlap: Boolean = false) 
     GREATER(">"),
     LESSEQUAL("<="),
     LESS("<"),
+    TRIPLE_EQUAL("==="),
     DOUBLE_EQUAL("=="),
     EQUAL("="),
     EXCLAMATION("!"),
 
+    RECORD("record", true),
+    FUNCTION("function", true),
     IF("if", true),
     THEN("then", true),
     ELSE("else", true),
@@ -72,7 +75,7 @@ fun tokenize(input: CharSequence): List<Token> {
         skipWhitespace(state)
         skipComments(state)
 
-        // match keywords
+        // match keywords that don't overlap with identifiers
         for (type in TokenType.values()) {
             if (type.keyword.isNotEmpty() and !type.hasOverlap) {
                 if (tryMatch(state, type.keyword))
