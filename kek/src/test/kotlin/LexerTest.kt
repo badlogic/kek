@@ -35,7 +35,7 @@ class LexerTest {
     @Test
     fun testUnknownToken() {
         try {
-            var tokens = tokenize("// this is a test\n /* this is \n another test */  .")
+            var tokens = tokenize("// this is a test\n /* this is \n another test */  §")
             assertTrue(false)
         } catch (e: CompilerException) {
             // expected
@@ -43,8 +43,117 @@ class LexerTest {
     }
 
     @Test
-    fun testKeywords() {
-        var tokens = tokenize ("( ) [ ] : , + - * / if then else def val var")
+    fun testNumber() {
+        var tokens = tokenize("0 1234 123.2 .234 ")
+        assertEquals(6, tokens.size)
+        assertEquals(TokenType.NUMBER, tokens[1].type)
+        assertEquals("1234", tokens[1].text)
+        assertEquals(TokenType.NUMBER, tokens[2].type)
+        assertEquals("123.2", tokens[2].text)
+        assertEquals(TokenType.DOT, tokens[3].type)
+        assertEquals(".", tokens[3].text)
+        assertEquals(TokenType.NUMBER, tokens[4].type)
+        assertEquals("234", tokens[4].text)
+        assertEquals(TokenType.EOF, tokens[5].type)
+    }
+
+    @Test
+    fun testIdentifier() {
+        var tokens = tokenize("a ab abC a123Bc a_c_d 1ab")
+        assertEquals(8, tokens.size)
+        assertEquals(TokenType.IDENTIFIER, tokens[0].type)
+        assertEquals("a", tokens[0].text)
+        assertEquals(TokenType.IDENTIFIER, tokens[1].type)
+        assertEquals("ab", tokens[1].text)
+        assertEquals(TokenType.IDENTIFIER, tokens[2].type)
+        assertEquals("abC", tokens[2].text)
+        assertEquals(TokenType.IDENTIFIER, tokens[3].type)
+        assertEquals("a123Bc", tokens[3].text)
+        assertEquals(TokenType.IDENTIFIER, tokens[4].type)
+        assertEquals("a_c_d", tokens[4].text)
+        assertEquals(TokenType.NUMBER, tokens[5].type)
+        assertEquals("1", tokens[5].text)
+        assertEquals(TokenType.IDENTIFIER, tokens[6].type)
+        assertEquals("ab", tokens[6].text)
+        assertEquals(TokenType.EOF, tokens[7].type)
+    }
+
+    @Test
+    fun testString() {
+        val tokens = tokenize(""" "This is a string \\ \n \t \"" """)
+        assertEquals(2, tokens.size)
+        assertEquals(TokenType.STRING, tokens[0].type)
+        assertEquals(""""This is a string \\ \n \t \""""", tokens[0].text)
+        assertEquals(TokenType.EOF, tokens[1].type)
+
+        try {
+            val tokens = tokenize(""" "this is a """);
+            assertTrue(false)
+        } catch(e: CompilerException) {
+            // expected
+        }
+
+        try {
+            val tokens = tokenize(""" "\" """);
+            assertTrue(false)
+        } catch(e: CompilerException) {
+            // expected
+        }
+
+        try {
+            val tokens = tokenize(""" "\z" """);
+            assertTrue(false)
+        } catch(e: CompilerException) {
+            // expected
+        }
+    }
+
+    @Test
+    fun testCharacter() {
+        val tokens = tokenize(""" 'a' '' '\'' '\n' '\t' """)
+        assertEquals(6, tokens.size)
+        assertEquals(TokenType.CHARACTER, tokens[0].type)
+        assertEquals("'a'", tokens[0].text)
+        assertEquals(TokenType.CHARACTER, tokens[1].type)
+        assertEquals("''", tokens[1].text)
+        assertEquals(TokenType.CHARACTER, tokens[2].type)
+        assertEquals("""'\''""", tokens[2].text)
+        assertEquals(TokenType.CHARACTER, tokens[3].type)
+        assertEquals("""'\n'""", tokens[3].text)
+        assertEquals(TokenType.CHARACTER, tokens[4].type)
+        assertEquals("""'\t'""", tokens[4].text)
+        assertEquals(TokenType.EOF, tokens[5].type)
+
+        try {
+            val tokens = tokenize(" 'a");
+            assertTrue(false)
+        } catch(e: CompilerException) {
+            // expected
+        }
+
+        try {
+            val tokens = tokenize(""" '\' """");
+            assertTrue(false)
+        } catch(e: CompilerException) {
+            // expected
+        }
+
+        try {
+            val tokens = tokenize(""" '\z' """);
+            assertTrue(false)
+        } catch(e: CompilerException) {
+            // expected
+        }
+    }
+
+    @Test
+    fun testKeywordIdentifierOverlap() {
+        var tokens = tokenize ("and andThisIsAnIdentifier")
+        assertEquals(tokens.size, 3)
+        assertEquals(TokenType.AND, tokens[0].type)
+        assertEquals("and", tokens[0].text)
+        assertEquals(TokenType.IDENTIFIER, tokens[1].type)
+        assertEquals("andThisIsAnIdentifier", tokens[1].text)
     }
 
     @Test
