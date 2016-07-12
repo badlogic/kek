@@ -1,0 +1,30 @@
+function simple ()
+end
+
+function withParam(a: int, b: int)
+end
+
+function withParamAndReturn (a: int, b: int, c: int): int
+end
+
+/*
+function add(a: int, b: int): int
+    return a + b
+end
+
+function mulAdd(a: int, b: int, c: int): int
+    return a * b + c
+end
+
+function min(a: int, b: int): int
+    if a > b then
+        return b
+    else
+        return a
+    end
+end
+
+function main()
+    print("Hello world")
+end
+*/
