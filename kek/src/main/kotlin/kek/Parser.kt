@@ -147,7 +147,7 @@ private fun statement(state: ParserState): Statement {
     return expression(state)
 }
 
-private fun  returnStatement(state: ParserState): Statement {
+private fun returnStatement(state: ParserState): Statement {
     next(state);
     return ReturnStatement(expression(state));
 }

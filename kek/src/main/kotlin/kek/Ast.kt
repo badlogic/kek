@@ -24,7 +24,7 @@ class NoType : Type(null) {
 abstract class Statement : AstNode {
 }
 
-class ReturnStatement(val expression: Expression): Statement() {
+class ReturnStatement(val expression: Expression) : Statement() {
 }
 
 class IfStatement(val condition: Expression, val trueBody: List<Statement>, val falseBody: List<Statement>) : Statement() {
@@ -122,7 +122,7 @@ fun printAstNode(p: String, n: AstNode, nodes: StringBuffer, edges: StringBuffer
     else throw RuntimeException("Unknown AST node $n");
 }
 
-fun  printReturnStatement(p: String, n: ReturnStatement, nodes: StringBuffer, edges: StringBuffer): String {
+fun printReturnStatement(p: String, n: ReturnStatement, nodes: StringBuffer, edges: StringBuffer): String {
     val name = "b${i++}"
     nodes.append("$name [label=\"Return\"]\n")
     edges.append("$p->$name\n")
@@ -138,7 +138,7 @@ fun printAstNodeList(p: String, l: List<AstNode>, nodes: StringBuffer, edges: St
     return last
 }
 
-fun  printIfStatement(p: String, n: IfStatement, nodes: StringBuffer, edges: StringBuffer): String {
+fun printIfStatement(p: String, n: IfStatement, nodes: StringBuffer, edges: StringBuffer): String {
     val name = "b${i++}"
     nodes.append("$name [label=\"If\"]\n")
     edges.append("$p->$name\n")
