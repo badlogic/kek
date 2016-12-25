@@ -1,3 +1,5 @@
+namespace my.fucking.thing
+
 function simple ()
 end
 
@@ -7,11 +9,20 @@ end
 function withParamAndReturn (a: int, b: int, c: int): int
 end
 
-/*
-function add(a: int, b: int): int
-    return a + b
+
+function ret(): int
+    var a
+    var b:int = -0 + 123.3423;
+    var c = a + b * (123 - ---213);
+    var d = mulAdd(123, 2)[0](234).test(24)[9]
+    t(123)
 end
 
+function main()
+    print("Hello world")
+end
+
+/*
 function mulAdd(a: int, b: int, c: int): int
     return a * b + c
 end
@@ -22,9 +33,5 @@ function min(a: int, b: int): int
     else
         return a
     end
-end
-
-function main()
-    print("Hello world")
 end
 */

@@ -8,6 +8,7 @@ enum class TokenType(val keyword: String = "", val hasOverlap: Boolean = false) 
     R_BRACK("]"),
     DOT("."),
     COLON(":"),
+    SEMI_COLON(";"),
     COMMA(","),
     PLUS("+"),
     MINUS("-"),
@@ -22,6 +23,7 @@ enum class TokenType(val keyword: String = "", val hasOverlap: Boolean = false) 
     EQUAL("="),
     EXCLAMATION("!"),
 
+    NAMESPACE("namespace", true),
     STRUCTURE("structure", true),
     FUNCTION("function", true),
     IF("if", true),
@@ -38,6 +40,8 @@ enum class TokenType(val keyword: String = "", val hasOverlap: Boolean = false) 
     OR("or", true),
     NOT("not", true),
     XOR("xor", true),
+    SHL("shl", true),
+    SHR("shr", true),
     TRUE("true", true),
     FALSE("false", true),
 
