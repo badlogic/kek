@@ -62,13 +62,12 @@ private fun compilationUnit(state: ParserState): CompilationUnit {
         if (match(state, TokenType.FUNCTION)) {
             functions.add(function(state))
         } else if (match(state, TokenType.STRUCTURE)) {
-
+            // FIXME
         } else {
             error(state, "Expected a function or structure definition")
         }
     }
 
-    // FIXME
     return CompilationUnit(nameSpace, functions, structs)
 }
 
@@ -140,16 +139,79 @@ private fun statement(state: ParserState): Statement {
     if (match(state, TokenType.VAR)) return variableDeclaration(state)
     if (match(state, TokenType.RETURN)) return returnStatement(state)
     if (match(state, TokenType.IF)) return ifStatement(state)
-    // FIXME
-    // if (match(state, TokenType.FOR)) return forStatement(state)
-    // if (match(state, TokenType.WHILE)) return WhileStatement(state)
-    // if (match(state, TokenType.DO)) return DoStatement(state)
+    if (match(state, TokenType.FOR)) return forStatement(state)
+    if (match(state, TokenType.WHILE)) return whileStatement(state)
+    if (match(state, TokenType.DO)) return doStatement(state)
     return expression(state)
 }
 
+private fun doStatement(state: ParserState): Statement {
+    next(state)
+
+    val body = mutableListOf<Statement>()
+    while (!match(state, TokenType.WHILE)) {
+        while (match(state, TokenType.SEMI_COLON, true)) {
+        }
+        body.add(statement(state))
+        while (match(state, TokenType.SEMI_COLON, true)) {
+        }
+    }
+    if (!match(state, TokenType.WHILE, true)) error("Expected while")
+    val condition = expression(state);
+    if (!match(state, TokenType.END, true)) error("Expected end")
+    return DoStatement(condition, body)
+}
+
+private fun whileStatement(state: ParserState): Statement {
+    next(state)
+    val condition = expression(state)
+    if (!match(state, TokenType.DO, true)) error("Expected do")
+
+    val body = mutableListOf<Statement>()
+    while (!match(state, TokenType.END)) {
+        while (match(state, TokenType.SEMI_COLON, true)) {
+        }
+        body.add(statement(state))
+        while (match(state, TokenType.SEMI_COLON, true)) {
+        }
+    }
+    if (!match(state, TokenType.END, true)) error("Expected end")
+    return WhileStatement(condition, body)
+}
+
+private fun forStatement(state: ParserState): Statement {
+    next(state)
+    val initializer = mutableListOf<VariableDeclaration>()
+    while (match(state, TokenType.VAR)) {
+        initializer.add(variableDeclaration(state))
+        if (!match(state, TokenType.COMMA, true)) break
+    }
+    if (!match(state, TokenType.SEMI_COLON, true)) error(state, "Expected semicolon")
+    val condition = expression(state)
+    if (!match(state, TokenType.SEMI_COLON, true)) error(state, "Expected semicolon")
+
+    val increment = mutableListOf<Expression>()
+    while (!match(state, TokenType.DO)) {
+        increment.add(expression(state))
+        if (!match(state, TokenType.COMMA, true)) break
+    }
+    if (!match(state, TokenType.DO, true)) error(state, "Expected do")
+    val body = mutableListOf<Statement>()
+    while (!match(state, TokenType.END) and !match(state, TokenType.ELSE)) {
+        while (match(state, TokenType.SEMI_COLON, true)) {
+        }
+        body.add(statement(state))
+        while (match(state, TokenType.SEMI_COLON, true)) {
+        }
+    }
+    if (!match(state, TokenType.END, true)) error(state, "Expected end")
+
+    return ForStatement(initializer, condition, increment, body)
+}
+
 private fun returnStatement(state: ParserState): Statement {
-    next(state);
-    return ReturnStatement(expression(state));
+    next(state)
+    return ReturnStatement(expression(state))
 }
 
 private fun variableDeclaration(state: ParserState): VariableDeclaration {
@@ -175,13 +237,27 @@ private fun ifStatement(state: ParserState): Statement {
     val condition = expression(state)
     if (!match(state, TokenType.THEN, true)) error("Expected then")
     val trueBody = mutableListOf<Statement>()
+    val elseIfs = mutableListOf<IfStatement>()
     val falseBody = mutableListOf<Statement>()
-    while (!match(state, TokenType.END) and !match(state, TokenType.ELSE)) {
+    while (!match(state, TokenType.END) and !match(state, TokenType.ELSE) and !match(state, TokenType.ELSEIF)) {
         while (match(state, TokenType.SEMI_COLON, true)) {
         }
         trueBody.add(statement(state))
         while (match(state, TokenType.SEMI_COLON, true)) {
         }
+    }
+    while (match(state, TokenType.ELSEIF, true)) {
+        val elseifCondition = expression(state)
+        if (!match(state, TokenType.THEN, true)) error("Expected then")
+        val elseIfBody = mutableListOf<Statement>()
+        while (!match(state, TokenType.ELSE) and !match(state, TokenType.ELSEIF) and !match(state, TokenType.END)) {
+            while (match(state, TokenType.SEMI_COLON, true)) {
+            }
+            elseIfBody.add(statement(state))
+            while (match(state, TokenType.SEMI_COLON, true)) {
+            }
+        }
+        elseIfs.add(IfStatement(elseifCondition, elseIfBody, emptyList<IfStatement>(), emptyList<Statement>()))
     }
     if (match(state, TokenType.ELSE, true)) {
         while (match(state, TokenType.SEMI_COLON, true)) {
@@ -191,11 +267,11 @@ private fun ifStatement(state: ParserState): Statement {
         }
     }
     if (!match(state, TokenType.END, true)) error("Expected end")
-    return IfStatement(condition, trueBody, falseBody)
+    return IfStatement(condition, trueBody, elseIfs, falseBody)
 }
 
 private val binaryOpGroups = listOf(
-        listOf(TokenType.EQUAL),
+        listOf(TokenType.EQUAL, TokenType.PLUS_EQUAL, TokenType.MINUS_EQUAL, TokenType.MUL_EQUAL, TokenType.DIV_EQUAL, TokenType.MOD_EQUAL),
         listOf(TokenType.OR, TokenType.AND, TokenType.XOR),
         listOf(TokenType.DOUBLE_EQUAL, TokenType.NOT_EQUAL, TokenType.TRIPLE_EQUAL),
         listOf(TokenType.LESS, TokenType.LESSEQUAL, TokenType.GREATER, TokenType.GREATEREQUAL),
@@ -207,7 +283,7 @@ private val binaryOpGroups = listOf(
 private val unaryOperators = listOf(TokenType.MINUS, TokenType.PLUS, TokenType.NOT)
 
 private fun expression(state: ParserState): Expression {
-    return ternaryOperator(state);
+    return ternaryOperator(state)
 }
 
 private fun ternaryOperator(state: ParserState): Expression {
@@ -225,16 +301,16 @@ private fun ternaryOperator(state: ParserState): Expression {
 
 private fun binaryOperator(state: ParserState, level: Int): Expression {
     val nextLevel = level + 1
-    val left = if (nextLevel == binaryOpGroups.size) unaryOperator(state) else binaryOperator(state, nextLevel)
+    var left = if (nextLevel == binaryOpGroups.size) unaryOperator(state) else binaryOperator(state, nextLevel)
 
     val ops = binaryOpGroups[level];
-    if (match(state, ops)) {
+    while (match(state, ops)) {
         val opType = next(state)
         val right = if (nextLevel == binaryOpGroups.size) unaryOperator(state) else binaryOperator(state, nextLevel)
-        return BinaryOperator(opType, left, right)
-    } else {
-        return left
+        left = BinaryOperator(opType, left, right)
     }
+
+    return left
 }
 
 private fun unaryOperator(state: ParserState): Expression {

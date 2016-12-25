@@ -27,7 +27,16 @@ abstract class Statement : AstNode {
 class ReturnStatement(val expression: Expression) : Statement() {
 }
 
-class IfStatement(val condition: Expression, val trueBody: List<Statement>, val falseBody: List<Statement>) : Statement() {
+class IfStatement(val condition: Expression, val trueBody: List<Statement>, val elseIfs: List<IfStatement>, val falseBody: List<Statement>) : Statement() {
+}
+
+class ForStatement(val initializer: List<VariableDeclaration>, val condition: Expression, val increment: List<Expression>, val body: List<Statement>) : Statement() {
+}
+
+class WhileStatement(val condition: Expression, val body: List<Statement>) : Statement() {
+}
+
+class DoStatement(val condition: Expression, val body: List<Statement>) : Statement() {
 }
 
 abstract class Expression : Statement() {
@@ -116,10 +125,42 @@ fun printAstNode(p: String, n: AstNode, nodes: StringBuffer, edges: StringBuffer
     else if (n is FunctionCall) return printFunctionCall(p, n, nodes, edges)
     else if (n is VariableDeclaration) return printVariableDeclaration(p, n, nodes, edges)
     else if (n is IfStatement) return printIfStatement(p, n, nodes, edges)
+    else if (n is ForStatement) return printForStatement(p, n, nodes, edges)
+    else if (n is WhileStatement) return printWhileStatement(p, n, nodes, edges)
+    else if (n is DoStatement) return printDoStatement(p, n, nodes, edges)
     else if (n is ReturnStatement) return printReturnStatement(p, n, nodes, edges)
     else if (n is TernaryOperator) return printTernaryOperator(p, n, nodes, edges)
     else if (n is EmptyExpression) return "empty";
     else throw RuntimeException("Unknown AST node $n");
+}
+
+fun  printWhileStatement(p: String, n: WhileStatement, nodes: StringBuffer, edges: StringBuffer): String {
+    val name = "b${i++}"
+    nodes.append("$name [label=\"While\"]\n")
+    edges.append("$p->$name\n")
+    printAstNode(name, n.condition, nodes, edges);
+    printAstNodeList(name, n.body, nodes, edges);
+    return name;
+}
+
+fun  printDoStatement(p: String, n: DoStatement, nodes: StringBuffer, edges: StringBuffer): String {
+    val name = "b${i++}"
+    nodes.append("$name [label=\"Do\"]\n")
+    edges.append("$p->$name\n")
+    printAstNode(name, n.condition, nodes, edges);
+    printAstNodeList(name, n.body, nodes, edges);
+    return name;
+}
+
+fun printForStatement(p: String, n: ForStatement, nodes: StringBuffer, edges: StringBuffer): String {
+    val name = "b${i++}"
+    nodes.append("$name [label=\"For\"]\n")
+    edges.append("$p->$name\n")
+    printAstNodeList(name, n.initializer, nodes, edges);
+    printAstNode(name, n.condition, nodes, edges);
+    printAstNodeList(name, n.increment, nodes, edges);
+    printAstNodeList(name, n.body, nodes, edges);
+    return name;
 }
 
 fun printReturnStatement(p: String, n: ReturnStatement, nodes: StringBuffer, edges: StringBuffer): String {
@@ -144,6 +185,7 @@ fun printIfStatement(p: String, n: IfStatement, nodes: StringBuffer, edges: Stri
     edges.append("$p->$name\n")
     printAstNode(name, n.condition, nodes, edges);
     printAstNodeList(name, n.trueBody, nodes, edges);
+    printAstNodeList(name, n.elseIfs, nodes, edges)
     printAstNodeList(name, n.falseBody, nodes, edges);
     return name;
 }

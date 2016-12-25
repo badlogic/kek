@@ -26,10 +26,28 @@ end
 
 function min(a: int, b: int): int
     if a > b then
-        return b
-    else
+        if true then
+            return b
+        end
+    elseif x then
         return a
+    else
+        return 0
     end
+
+    for var i:int = 0, var x = 1; i < 10; i += 1, x *= 2 do
+        print("Test")
+    end
+
+    while a + b + c > 0 do
+        print(a + b + c)
+    end
+
+    do
+        a = b
+        var c = 133123
+        print(a + c)
+    while true end
 end
 
 /*
