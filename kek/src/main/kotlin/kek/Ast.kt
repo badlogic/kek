@@ -39,6 +39,12 @@ class WhileStatement(val condition: Expression, val body: List<Statement>) : Sta
 class DoStatement(val condition: Expression, val body: List<Statement>) : Statement() {
 }
 
+class BreakStatement() : Statement () {
+}
+
+class ContinueStatement() : Statement () {
+}
+
 abstract class Expression : Statement() {
 }
 
@@ -124,9 +130,25 @@ fun printAstNode(p: String, n: AstNode, nodes: StringBuffer, edges: StringBuffer
     else if (n is WhileStatement) return printWhileStatement(p, n, nodes, edges)
     else if (n is DoStatement) return printDoStatement(p, n, nodes, edges)
     else if (n is ReturnStatement) return printReturnStatement(p, n, nodes, edges)
+    else if (n is BreakStatement) return printBreakStatement(p, n, nodes, edges)
+    else if (n is ContinueStatement) return printContinueStatement(p, n, nodes, edges)
     else if (n is TernaryOperator) return printTernaryOperator(p, n, nodes, edges)
     else if (n is EmptyExpression) return "empty"
     else throw RuntimeException("Unknown AST node $n")
+}
+
+fun  printContinueStatement(p: String, n: ContinueStatement, nodes: StringBuffer, edges: StringBuffer): String {
+    val name = "b${i++}"
+    nodes.append("$name [label=\"Continue\"]\n")
+    edges.append("$p->$name\n")
+    return name
+}
+
+fun  printBreakStatement(p: String, n: BreakStatement, nodes: StringBuffer, edges: StringBuffer): String {
+    val name = "b${i++}"
+    nodes.append("$name [label=\"Break\"]\n")
+    edges.append("$p->$name\n")
+    return name
 }
 
 fun  printWhileStatement(p: String, n: WhileStatement, nodes: StringBuffer, edges: StringBuffer): String {

@@ -142,6 +142,8 @@ private fun statement(state: ParserState): Statement {
     if (match(state, TokenType.FOR)) return forStatement(state)
     if (match(state, TokenType.WHILE)) return whileStatement(state)
     if (match(state, TokenType.DO)) return doStatement(state)
+    if (match(state, TokenType.BREAK, true)) return BreakStatement();
+    if (match(state, TokenType.CONTINUE, true)) return ContinueStatement();
     return expression(state)
 }
 

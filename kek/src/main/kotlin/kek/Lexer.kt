@@ -43,6 +43,8 @@ enum class TokenType(val keyword: String = "", val hasOverlap: Boolean = false) 
     FOR("for", true),
     END("end", true),
     RETURN("return", true),
+    BREAK("break", true),
+    CONTINUE("continue", true),
     VAL("val", true),
     VAR("var", true),
     AND("and", true),

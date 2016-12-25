@@ -37,10 +37,15 @@ function min(a: int, b: int): int
 
     for var i:int = 0, var x = 1; i < 10; i += 1, x *= 2 do
         print("Test")
+        break
+    end
+
+    for var i = 0; i < 10; i += 1 do
     end
 
     while a + b + c > 0 do
         print(a + b + c)
+        continue
     end
 
     do
