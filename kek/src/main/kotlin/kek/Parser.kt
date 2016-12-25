@@ -11,6 +11,13 @@ fun parse(input: CharSequence): CompilationUnit {
     return compilationUnit(state)
 }
 
+private fun match(state: ParserState, tokenTypes: List<TokenType>): Boolean {
+    for (type in tokenTypes) {
+        if (match(state, type)) return true;
+    }
+    return false;
+}
+
 private fun match(state: ParserState, tokenType: TokenType, advanceIfMatched: Boolean = false): Boolean {
     if (state.tokens.size == state.currentToken) throw RuntimeException("Reached end of file, expected some more code")
     val result = state.tokens[state.currentToken].type == tokenType
@@ -119,8 +126,11 @@ private fun type(state: ParserState): Type {
 private fun functionBody(state: ParserState): List<Statement> {
     val statements = mutableListOf<Statement>()
     while (!match(state, TokenType.END)) {
-        while(match(state, TokenType.SEMI_COLON, true));
+        while (match(state, TokenType.SEMI_COLON, true)) {
+        }
         statements.add(statement(state))
+        while (match(state, TokenType.SEMI_COLON, true)) {
+        }
     }
     return statements
 }
@@ -128,14 +138,24 @@ private fun functionBody(state: ParserState): List<Statement> {
 
 private fun statement(state: ParserState): Statement {
     if (match(state, TokenType.VAR)) return variableDeclaration(state)
-    // FIXME control flow, assignment
+    if (match(state, TokenType.RETURN)) return returnStatement(state)
+    if (match(state, TokenType.IF)) return ifStatement(state)
+    // FIXME
+    // if (match(state, TokenType.FOR)) return forStatement(state)
+    // if (match(state, TokenType.WHILE)) return WhileStatement(state)
+    // if (match(state, TokenType.DO)) return DoStatement(state)
     return expression(state)
+}
+
+private fun  returnStatement(state: ParserState): Statement {
+    next(state);
+    return ReturnStatement(expression(state));
 }
 
 private fun variableDeclaration(state: ParserState): VariableDeclaration {
     if (!match(state, TokenType.VAR, true)) error(state, "Expected a variable declaration")
     if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected a variable name")
-    var name = next(state)
+    val name = next(state)
 
     var type: Type = NoType()
     if (match(state, TokenType.COLON, true)) {
@@ -150,44 +170,93 @@ private fun variableDeclaration(state: ParserState): VariableDeclaration {
     return VariableDeclaration(name, type, initializer)
 }
 
+private fun ifStatement(state: ParserState): Statement {
+    next(state)
+    val condition = expression(state)
+    if (!match(state, TokenType.THEN, true)) error("Expected then")
+    val trueBody = mutableListOf<Statement>()
+    val falseBody = mutableListOf<Statement>()
+    while (!match(state, TokenType.END) and !match(state, TokenType.ELSE)) {
+        while (match(state, TokenType.SEMI_COLON, true)) {
+        }
+        trueBody.add(statement(state))
+        while (match(state, TokenType.SEMI_COLON, true)) {
+        }
+    }
+    if (match(state, TokenType.ELSE, true)) {
+        while (match(state, TokenType.SEMI_COLON, true)) {
+        }
+        falseBody.add(statement(state))
+        while (match(state, TokenType.SEMI_COLON, true)) {
+        }
+    }
+    if (!match(state, TokenType.END, true)) error("Expected end")
+    return IfStatement(condition, trueBody, falseBody)
+}
+
+private val binaryOpGroups = listOf(
+        listOf(TokenType.EQUAL),
+        listOf(TokenType.OR, TokenType.AND, TokenType.XOR),
+        listOf(TokenType.DOUBLE_EQUAL, TokenType.NOT_EQUAL, TokenType.TRIPLE_EQUAL),
+        listOf(TokenType.LESS, TokenType.LESSEQUAL, TokenType.GREATER, TokenType.GREATEREQUAL),
+        listOf(TokenType.SHL, TokenType.SHR),
+        listOf(TokenType.PLUS, TokenType.MINUS),
+        listOf(TokenType.DIV, TokenType.MUL, TokenType.MODULO)
+)
+
+private val unaryOperators = listOf(TokenType.MINUS, TokenType.PLUS, TokenType.NOT)
+
 private fun expression(state: ParserState): Expression {
-    var left: Expression = EmptyExpression()
-    if (match(state, TokenType.MINUS, true)) {
-        left = Negate(term(state))
-    } else {
-        left = term(state)
-    }
+    return ternaryOperator(state);
+}
 
-    if (match(state, TokenType.PLUS) or match(state, TokenType.MINUS)) {
+private fun ternaryOperator(state: ParserState): Expression {
+    val left = binaryOperator(state, 0)
+
+    if (match(state, TokenType.QUESTION, true)) {
+        val middle = ternaryOperator(state);
+        if (!match(state, TokenType.COLON, true)) error("Expected colon for ternary operator")
+        val right = ternaryOperator(state);
+        return TernaryOperator(left, middle, right);
+    } else {
+        return left;
+    }
+}
+
+private fun binaryOperator(state: ParserState, level: Int): Expression {
+    val nextLevel = level + 1
+    val left = if (nextLevel == binaryOpGroups.size) unaryOperator(state) else binaryOperator(state, nextLevel)
+
+    val ops = binaryOpGroups[level];
+    if (match(state, ops)) {
         val opType = next(state)
-        val right = term(state)
+        val right = if (nextLevel == binaryOpGroups.size) unaryOperator(state) else binaryOperator(state, nextLevel)
         return BinaryOperator(opType, left, right)
     } else {
         return left
     }
 }
 
-private fun term(state: ParserState): Expression {
-    val left = factor(state)
-
-    if (match(state, TokenType.MUL) or match(state, TokenType.DIV)) {
-        val opType = next(state)
-        val right = factor(state)
-        return BinaryOperator(opType, left, right)
+private fun unaryOperator(state: ParserState): Expression {
+    if (match(state, unaryOperators)) {
+        return UnaryOperator(next(state), unaryOperator(state))
     } else {
-        return left
+        return factor(state)
     }
 }
-
-// FIXME boolean/binary ops
 
 private fun factor(state: ParserState): Expression {
+    // match paranthesised expressions
     if (match(state, TokenType.L_PARA, true)) {
         val expr = expression(state)
         if (!match(state, TokenType.R_PARA, true)) error(state, "Expected closing paranthesis )")
         return expr
     }
 
+    // match literals
+    if (match(state, TokenType.TRUE) or match(state, TokenType.FALSE)) {
+        return BooleanLiteral(next(state));
+    }
     if (match(state, TokenType.NUMBER)) {
         return NumberLiteral(next(state))
     }
@@ -198,14 +267,9 @@ private fun factor(state: ParserState): Expression {
         return StringLiteral(next(state))
     }
 
-    if (match(state, TokenType.MINUS)) {
-        return expression(state)
-    }
-
+    // match variable access, field access, array access and function calls
     if (match(state, TokenType.IDENTIFIER)) {
         var lastExpr: Expression = VariableAccess(next(state))
-
-        // match field access, array access and function calls
 
         while (true) {
             // function or method call
