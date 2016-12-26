@@ -32,6 +32,7 @@ enum class TokenType(val keyword: String = "", val hasOverlap: Boolean = false) 
     MODULO("%"),
 
     NAMESPACE("namespace", true),
+    IMPORT("import", true),
     STRUCTURE("structure", true),
     FUNCTION("function", true),
     IF("if", true),

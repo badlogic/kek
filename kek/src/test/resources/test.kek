@@ -1,5 +1,7 @@
 namespace my.fucking.thing
 
+import math
+
 /*function simple ()
 end
 
@@ -9,6 +11,15 @@ end
 function withParamAndReturn (a: int, b: int, c: int): int
 end*/
 
+structure MyStruct
+    minX
+    minY:int
+    maxX = 0
+    maxY = 120
+    next:MyStruct?
+    arr:int[]
+    // f:function(a:int,b:int):bool = function(a:int, b:int):int
+end
 
 function ret(): int
     var a = a - ---3
@@ -35,12 +46,12 @@ function min(a: int, b: int): int
         return 0
     end
 
-    for var i:int = 0, var x = 1; i < 10; i += 1, x *= 2 do
+    for i:int = 0, x = 1; i < 10; i += 1, x *= 2 do
         print("Test")
         break
     end
 
-    for var i = 0; i < 10; i += 1 do
+    for i = 0; i < 10; i += 1 do
     end
 
     while a + b + c > 0 do
