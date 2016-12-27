@@ -1,6 +1,6 @@
 package kek.runtime
 
-data class Source(val location:String, val sourceCode: CharSequence)
+data class Source(val location: String, val sourceCode: CharSequence)
 
 data class Location(val source: Source, val line: Int, val column: Int)
 
@@ -10,7 +10,7 @@ data class Function(val location: Location, val module: String, val name: String
 
 data class Module(val name: String, val imports: MutableSet<String> = mutableSetOf(), val functions: MutableMap<String, Function> = mutableMapOf(), val structures: MutableMap<String, Structure> = mutableMapOf())
 
-fun printModule(module:Module): String {
+fun printModule(module: Module): String {
     val buffer = StringBuffer()
 
     buffer.appendln("Module ${module.name}")

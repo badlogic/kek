@@ -2,14 +2,14 @@ package kek.compiler
 
 import kek.runtime.*
 
-abstract class AstNode (val firstToken: Token, val lastToken: Token){
-    val annotations = mutableMapOf<Class<Any>, Any> ()
+abstract class AstNode(val firstToken: Token, val lastToken: Token) {
+    val annotations = mutableMapOf<Class<Any>, Any>()
 
-    fun <T> getAnnotation(cls:Class<T>): T {
+    fun <T> getAnnotation(cls: Class<T>): T {
         return annotations[cls as Class<Any>] as T
     }
 
-    fun <T> setAnnotation(annotation: T, cls:Class<T>) {
+    fun <T> setAnnotation(annotation: T, cls: Class<T>) {
         annotations[cls as Class<Any>] = annotation as Any
     }
 }
@@ -17,7 +17,7 @@ abstract class AstNode (val firstToken: Token, val lastToken: Token){
 class CompilationUnitNode(val source: Source, val module: String = "", val imports: List<ImportNode>, val functions: List<FunctionNode>, val structs: List<StructureNode>, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
 }
 
-class ImportNode(val importName: String, firstToken: Token, lastToken: Token): AstNode(firstToken, lastToken) {
+class ImportNode(val importName: String, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
 }
 
 class StructureNode(val name: Token, val fields: List<VariableDeclarationNode>, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
@@ -29,9 +29,9 @@ class FunctionNode(val name: Token, val parameters: List<ParameterNode>, val ret
 class ParameterNode(val name: Token, val type: TypeNode, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
 }
 
-open class TypeNode(val name: List<Token>, val isArray:Boolean, val isOptional:Boolean, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
+open class TypeNode(val name: List<Token>, val isArray: Boolean, val isOptional: Boolean, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
 
-    fun fullyQualfiedName():String {
+    fun fullyQualfiedName(): String {
         val buffer = StringBuffer()
         for (i in name.indices) {
             buffer.append(name[i].text)
@@ -142,7 +142,7 @@ interface AstVisitor {
 }
 
 fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor) {
-    when(ast) {
+    when (ast) {
         is CompilationUnitNode -> {
             visitor.namespace(ast.module)
 
@@ -304,14 +304,14 @@ fun printAstNode(p: String, n: AstNode, nodes: StringBuffer, edges: StringBuffer
     else throw RuntimeException("Unknown AST node $n")
 }
 
-fun  printImport(p: String, n: ImportNode, nodes: StringBuffer, edges: StringBuffer): String {
+fun printImport(p: String, n: ImportNode, nodes: StringBuffer, edges: StringBuffer): String {
     val name = "b${i++}"
     nodes.append("$name [label=\"ImportNode ${n.importName}\"]\n")
     edges.append("$p->$name\n")
     return name
 }
 
-fun  printParanthesis(p: String, n: ParenthesisNode, nodes: StringBuffer, edges: StringBuffer): String {
+fun printParanthesis(p: String, n: ParenthesisNode, nodes: StringBuffer, edges: StringBuffer): String {
     val name = "b${i++}"
     nodes.append("$name [label=\"()\"]\n")
     edges.append("$p->$name\n")

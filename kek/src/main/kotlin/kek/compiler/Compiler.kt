@@ -18,9 +18,9 @@ class CompilerException(val source: Source,
     }
 }
 
-data class CompilerState(val compilationUnits:MutableList<CompilationUnitNode> = mutableListOf<CompilationUnitNode>(), val modules:MutableMap<String, Module> = mutableMapOf<String, Module>())
+data class CompilerState(val compilationUnits: MutableList<CompilationUnitNode> = mutableListOf<CompilationUnitNode>(), val modules: MutableMap<String, Module> = mutableMapOf<String, Module>())
 
-fun compile(sources: List<Source>) : CompilerState {
+fun compile(sources: List<Source>): CompilerState {
     val state = CompilerState()
 
     for (source in sources) {
@@ -32,7 +32,7 @@ fun compile(sources: List<Source>) : CompilerState {
     return state
 }
 
-private fun gatherModules(state:CompilerState) {
+private fun gatherModules(state: CompilerState) {
     for (cu in state.compilationUnits) {
         val module: Module
         if (state.modules.containsKey(cu.module)) {

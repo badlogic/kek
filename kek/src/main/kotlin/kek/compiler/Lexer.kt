@@ -85,7 +85,7 @@ fun tokenize(input: Source): List<Token> {
     while (true) {
         // Check EOF
         if (isEOF(state)) {
-            with (state) {
+            with(state) {
                 tokens.add(Token(TokenType.EOF, index, line, column, ""))
                 return tokens
             }
