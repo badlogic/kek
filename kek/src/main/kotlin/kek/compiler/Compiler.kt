@@ -57,13 +57,13 @@ private fun gatherModules(state: CompilerState) {
         }
 
         for (f in cu.functions) {
-            if (module.functions.containsKey(f.name.text)) {
-                val otherFunc = module.functions[f.name.text]!!
-                throw CompilerException(cu.source, "Function ${module.name}.${f.name.text} already defined in ${otherFunc.location.source.location}:(${otherFunc.location.line}, ${otherFunc.location.column}", f.name.line, f.name.column, f.name.column + f.name.text.length)
-            }
-
             val func = Function(Location(cu.source, f.name.line, f.name.column), module.name, f.name.text)
-            module.functions[func.name] = func
+            var funcs = module.functions[func.name]
+            if (funcs == null) {
+                funcs = mutableListOf()
+                module.functions[func.name] = funcs
+            }
+            funcs!!.add(func)
         }
     }
 }

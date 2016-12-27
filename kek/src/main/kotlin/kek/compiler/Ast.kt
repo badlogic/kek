@@ -23,7 +23,7 @@ class ImportNode(val importName: String, firstToken: Token, lastToken: Token) : 
 class StructureNode(val name: Token, val fields: List<VariableDeclarationNode>, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
 }
 
-class FunctionNode(val name: Token, val parameters: List<ParameterNode>, val returnType: TypeNode, val body: List<StatementNode>, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
+class FunctionNode(val name: Token, val parameters: List<ParameterNode>, val returnType: TypeNode, val body: List<StatementNode>, val extern: Boolean, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
 }
 
 class ParameterNode(val name: Token, val type: TypeNode, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {

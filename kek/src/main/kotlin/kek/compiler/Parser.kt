@@ -54,7 +54,7 @@ private fun compilationUnit(state: ParserState): CompilationUnitNode {
     val structs = mutableListOf<StructureNode>()
 
     while (!match(state, TokenType.EOF)) {
-        if (match(state, TokenType.FUNCTION)) {
+        if (match(state, TokenType.FUNCTION) or match(state, TokenType.EXTERN)) {
             functions.add(function(state))
         } else if (match(state, TokenType.STRUCTURE)) {
             structs.add(structure(state))
@@ -122,6 +122,8 @@ private fun structure(state: ParserState): StructureNode {
 
 private fun function(state: ParserState): FunctionNode {
     val firstToken = state.current()
+    val extern = match(state, TokenType.EXTERN, true)
+
     if (!match(state, TokenType.FUNCTION, true)) error(state, "Expected a function definition")
     if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected function name")
     val name: Token = next(state)
@@ -132,10 +134,12 @@ private fun function(state: ParserState): FunctionNode {
         returnType = type(state)
     }
 
+    if (extern) return FunctionNode(name, parameterList, returnType, emptyList(), extern, firstToken, state.last())
+
     val body = functionBody(state)
 
     if (!match(state, TokenType.END, true)) error(state, "Expected 'end' at end of function definition")
-    return FunctionNode(name, parameterList, returnType, body, firstToken, state.last())
+    return FunctionNode(name, parameterList, returnType, body, extern, firstToken, state.last())
 }
 
 private fun parameterList(state: ParserState): List<ParameterNode> {
