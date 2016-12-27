@@ -1,8 +1,8 @@
-package kek
+package kek.compiler
 
-import java.sql.Struct
+import kek.runtime.*
 
-private data class ParserState(val input: CharSequence = "",
+private data class ParserState(val source: Source,
                                val tokens: List<Token>,
                                var currentToken: Int = 0,
                                val nodeStack: MutableList<AstNode> = mutableListOf<AstNode>()) {
@@ -16,7 +16,7 @@ private data class ParserState(val input: CharSequence = "",
     }
 }
 
-fun parse(input: CharSequence): CompilationUnit {
+fun parse(input: Source): CompilationUnitNode {
     val tokens = tokenize(input)
     val state = ParserState(input, tokens)
     return compilationUnit(state)
@@ -24,9 +24,9 @@ fun parse(input: CharSequence): CompilationUnit {
 
 private fun match(state: ParserState, tokenTypes: List<TokenType>): Boolean {
     for (type in tokenTypes) {
-        if (match(state, type)) return true;
+        if (match(state, type)) return true
     }
-    return false;
+    return false
 }
 
 private fun match(state: ParserState, tokenType: TokenType, advanceIfMatched: Boolean = false): Boolean {
@@ -43,15 +43,15 @@ private fun next(state: ParserState): Token {
 
 private fun error(state: ParserState, msg: String) {
     val token = state.tokens[state.currentToken]
-    throw CompilerException(state.input.toString(), msg + ", got " + token.text,
+    throw CompilerException(state.source, msg + ", got " + token.text,
             token.line, token.column, token.column + token.text.length)
 }
 
-private fun compilationUnit(state: ParserState): CompilationUnit {
-    val nameSpace = nameSpace(state)
-    val imports = mutableListOf<Import>()
-    val functions = mutableListOf<FunctionDefinition>()
-    val structs = mutableListOf<StructureDefinition>()
+private fun compilationUnit(state: ParserState): CompilationUnitNode {
+    val module = module(state)
+    val imports = mutableListOf<ImportNode>()
+    val functions = mutableListOf<FunctionNode>()
+    val structs = mutableListOf<StructureNode>()
 
     while (!match(state, TokenType.EOF)) {
         if (match(state, TokenType.FUNCTION)) {
@@ -67,30 +67,30 @@ private fun compilationUnit(state: ParserState): CompilationUnit {
 
     val eof = Token(TokenType.EOF, 0, 0, 0, "")
     val cu = if (state.tokens.size > 0)
-        CompilationUnit(nameSpace, imports, functions, structs, state.tokens.first(), state.tokens.last())
+        CompilationUnitNode(state.source, module, imports, functions, structs, state.tokens.first(), state.tokens.last())
     else
-        CompilationUnit(nameSpace, imports, functions, structs, eof, eof)
+        CompilationUnitNode(state.source, module, imports, functions, structs, eof, eof)
     return cu
 }
 
-private fun nameSpace(state: ParserState): String {
-    var nameSpace = ""
+private fun module(state: ParserState): String {
+    var module = ""
 
-    if (match(state, TokenType.NAMESPACE, true)) {
-        if (!match(state, TokenType.IDENTIFIER)) error("Expected namespace identifier")
-        nameSpace += next(state).text
+    if (match(state, TokenType.MODULE, true)) {
+        if (!match(state, TokenType.IDENTIFIER)) error("Expected module name")
+        module += next(state).text
 
         while (match(state, TokenType.DOT, true)) {
-            if (!match(state, TokenType.IDENTIFIER)) error("Expected namespace identifier")
-            nameSpace += "."
-            nameSpace += next(state).text
+            if (!match(state, TokenType.IDENTIFIER)) error("Expected module name")
+            module += "."
+            module += next(state).text
         }
     }
 
-    return nameSpace
+    return module
 }
 
-private fun import(state: ParserState): Import {
+private fun import(state: ParserState): ImportNode {
     var importName = ""
     val firstToken = state.current()
     if (match(state, TokenType.IMPORT, true)) {
@@ -103,31 +103,31 @@ private fun import(state: ParserState): Import {
             importName += next(state).text
         }
     }
-    return Import(importName, firstToken, state.last())
+    return ImportNode(importName, firstToken, state.last())
 }
 
-private fun structure(state: ParserState): StructureDefinition {
+private fun structure(state: ParserState): StructureNode {
     val firstToken = state.current()
     next(state)
     if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected structure name")
     val name = next(state)
-    val fields = mutableListOf<VariableDeclaration>()
+    val fields = mutableListOf<VariableDeclarationNode>()
     while (!match(state, TokenType.END)) {
         fields.add(variableDeclaration(state, false))
     }
     if (!match(state, TokenType.END, true)) error(state, "Expected end")
-    return StructureDefinition(name, fields, firstToken, state.last())
+    return StructureNode(name, fields, firstToken, state.last())
 }
 
 
-private fun function(state: ParserState): FunctionDefinition {
+private fun function(state: ParserState): FunctionNode {
     val firstToken = state.current()
     if (!match(state, TokenType.FUNCTION, true)) error(state, "Expected a function definition")
     if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected function name")
     val name: Token = next(state)
     val parameterList = parameterList(state)
 
-    var returnType: Type = NoType(firstToken, firstToken)
+    var returnType: TypeNode = NoTypeNode(firstToken, firstToken)
     if (match(state, TokenType.COLON, true)) {
         returnType = type(state)
     }
@@ -135,11 +135,11 @@ private fun function(state: ParserState): FunctionDefinition {
     val body = functionBody(state)
 
     if (!match(state, TokenType.END, true)) error(state, "Expected 'end' at end of function definition")
-    return FunctionDefinition(name, parameterList, returnType, body, firstToken, state.last())
+    return FunctionNode(name, parameterList, returnType, body, firstToken, state.last())
 }
 
-private fun parameterList(state: ParserState): List<Parameter> {
-    val parameters = mutableListOf<Parameter>()
+private fun parameterList(state: ParserState): List<ParameterNode> {
+    val parameters = mutableListOf<ParameterNode>()
     if (!match(state, TokenType.L_PARA, true)) error(state, "Expected a parameter list, starting with (")
     while (!match(state, TokenType.R_PARA, true)) {
         val param = parameter(state)
@@ -151,40 +151,40 @@ private fun parameterList(state: ParserState): List<Parameter> {
     return parameters
 }
 
-private fun parameter(state: ParserState): Parameter {
+private fun parameter(state: ParserState): ParameterNode {
     val firstToken = state.current()
     if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected a parameter name")
     val name = next(state)
     if (!match(state, TokenType.COLON, true)) error(state, "Expected a colon (:) between the parameter name and parameter type")
     val type = type(state)
-    return Parameter(name, type, firstToken, state.last())
+    return ParameterNode(name, type, firstToken, state.last())
 }
 
-private fun type(state: ParserState): Type {
+private fun type(state: ParserState): TypeNode {
     val firstToken = state.current()
     if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected a type")
     val identifiers = mutableListOf<Token>()
     identifiers.add(next(state))
 
     while (match(state, TokenType.DOT, true)) {
-        if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected namespace or type name");
-        identifiers.add(next(state));
+        if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected namespace or type name")
+        identifiers.add(next(state))
     }
 
     // FIXME generics, functions
 
     var isArray = false
     if (match(state, TokenType.L_BRACK, true)) {
-        if (!match(state, TokenType.R_BRACK, true)) error(state, "Expected closing bracket ]");
+        if (!match(state, TokenType.R_BRACK, true)) error(state, "Expected closing bracket ]")
         isArray = true
     }
 
     var isOptional = match(state, TokenType.QUESTION, true)
-    return Type(identifiers, isArray, isOptional, firstToken, state.last())
+    return TypeNode(identifiers, isArray, isOptional, firstToken, state.last())
 }
 
-private fun functionBody(state: ParserState): List<Statement> {
-    val statements = mutableListOf<Statement>()
+private fun functionBody(state: ParserState): List<StatementNode> {
+    val statements = mutableListOf<StatementNode>()
     while (!match(state, TokenType.END)) {
         while (match(state, TokenType.SEMI_COLON, true)) {
         }
@@ -196,23 +196,23 @@ private fun functionBody(state: ParserState): List<Statement> {
 }
 
 
-private fun statement(state: ParserState): Statement {
+private fun statement(state: ParserState): StatementNode {
     if (match(state, TokenType.VAR)) return variableDeclaration(state)
     if (match(state, TokenType.RETURN)) return returnStatement(state)
     if (match(state, TokenType.IF)) return ifStatement(state)
     if (match(state, TokenType.FOR)) return forStatement(state)
     if (match(state, TokenType.WHILE)) return whileStatement(state)
     if (match(state, TokenType.DO)) return doStatement(state)
-    if (match(state, TokenType.BREAK, true)) return BreakStatement(state.last(), state.last());
-    if (match(state, TokenType.CONTINUE, true)) return ContinueStatement(state.last(), state.last());
+    if (match(state, TokenType.BREAK, true)) return BreakNode(state.last(), state.last())
+    if (match(state, TokenType.CONTINUE, true)) return ContinueNode(state.last(), state.last())
     else return expression(state)
 }
 
-private fun doStatement(state: ParserState): Statement {
+private fun doStatement(state: ParserState): DoNode {
     val firstToken = state.current()
     if (!match(state, TokenType.DO, true)) error("Expected do")
 
-    val body = mutableListOf<Statement>()
+    val body = mutableListOf<StatementNode>()
     while (!match(state, TokenType.WHILE)) {
         while (match(state, TokenType.SEMI_COLON, true)) {
         }
@@ -221,19 +221,19 @@ private fun doStatement(state: ParserState): Statement {
         }
     }
     if (!match(state, TokenType.WHILE, true)) error("Expected while")
-    val condition = expression(state);
+    val condition = expression(state)
     if (!match(state, TokenType.END, true)) error("Expected end")
-    return DoStatement(condition, body, firstToken, state.last())
+    return DoNode(condition, body, firstToken, state.last())
 }
 
-private fun whileStatement(state: ParserState): Statement {
+private fun whileStatement(state: ParserState): WhileNode {
     val firstToken = state.current()
     if (!match(state, TokenType.WHILE, true)) error("Expected while")
 
     val condition = expression(state)
     if (!match(state, TokenType.DO, true)) error("Expected do")
 
-    val body = mutableListOf<Statement>()
+    val body = mutableListOf<StatementNode>()
     while (!match(state, TokenType.END)) {
         while (match(state, TokenType.SEMI_COLON, true)) {
         }
@@ -242,14 +242,14 @@ private fun whileStatement(state: ParserState): Statement {
         }
     }
     if (!match(state, TokenType.END, true)) error("Expected end")
-    return WhileStatement(condition, body, firstToken, state.last())
+    return WhileNode(condition, body, firstToken, state.last())
 }
 
-private fun forStatement(state: ParserState): Statement {
+private fun forStatement(state: ParserState): ForNode {
     val firstToken = state.current()
     if (!match(state, TokenType.FOR, true)) error("Expected for")
 
-    val initializer = mutableListOf<VariableDeclaration>()
+    val initializer = mutableListOf<VariableDeclarationNode>()
     while (!match(state, TokenType.SEMI_COLON)) {
         initializer.add(variableDeclaration(state, false))
         if (!match(state, TokenType.COMMA, true)) break
@@ -258,13 +258,13 @@ private fun forStatement(state: ParserState): Statement {
     val condition = expression(state)
     if (!match(state, TokenType.SEMI_COLON, true)) error(state, "Expected semicolon")
 
-    val increment = mutableListOf<Expression>()
+    val increment = mutableListOf<ExpressionNode>()
     while (!match(state, TokenType.DO)) {
         increment.add(expression(state))
         if (!match(state, TokenType.COMMA, true)) break
     }
     if (!match(state, TokenType.DO, true)) error(state, "Expected do")
-    val body = mutableListOf<Statement>()
+    val body = mutableListOf<StatementNode>()
     while (!match(state, TokenType.END) and !match(state, TokenType.ELSE)) {
         while (match(state, TokenType.SEMI_COLON, true)) {
         }
@@ -274,43 +274,43 @@ private fun forStatement(state: ParserState): Statement {
     }
     if (!match(state, TokenType.END, true)) error(state, "Expected end")
 
-    return ForStatement(initializer, condition, increment, body, firstToken, state.last())
+    return ForNode(initializer, condition, increment, body, firstToken, state.last())
 }
 
-private fun returnStatement(state: ParserState): Statement {
+private fun returnStatement(state: ParserState): ReturnNode {
     val firstToken = state.current()
     if (!match(state, TokenType.RETURN, true)) error("Expected return")
-    return ReturnStatement(expression(state), firstToken, state.last())
+    return ReturnNode(expression(state), firstToken, state.last())
 }
 
-private fun variableDeclaration(state: ParserState, expectVar: Boolean = true): VariableDeclaration {
+private fun variableDeclaration(state: ParserState, expectVar: Boolean = true): VariableDeclarationNode {
     val firstToken = state.current()
     if (expectVar)
         if (!match(state, TokenType.VAR, true)) error(state, "Expected a variable declaration")
     if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected a variable name")
     val name = next(state)
 
-    var type: Type = NoType(firstToken, firstToken)
+    var type: TypeNode = NoTypeNode(firstToken, firstToken)
     if (match(state, TokenType.COLON, true)) {
         type = type(state)
     }
 
-    var initializer: Expression = EmptyExpression(firstToken, state.last())
+    var initializer: ExpressionNode = EmptyExpressionNode(firstToken, state.last())
     if (match(state, TokenType.EQUAL, true)) {
         initializer = expression(state)
     }
 
-    return VariableDeclaration(name, type, initializer, firstToken, state.last())
+    return VariableDeclarationNode(name, type, initializer, firstToken, state.last())
 }
 
-private fun ifStatement(state: ParserState): Statement {
+private fun ifStatement(state: ParserState): IfNode {
     val firstToken = state.current()
     if (!match(state, TokenType.IF, true)) error("Expected if")
     val condition = expression(state)
     if (!match(state, TokenType.THEN, true)) error("Expected then")
-    val trueBody = mutableListOf<Statement>()
-    val elseIfs = mutableListOf<IfStatement>()
-    val falseBody = mutableListOf<Statement>()
+    val trueBody = mutableListOf<StatementNode>()
+    val elseIfs = mutableListOf<IfNode>()
+    val falseBody = mutableListOf<StatementNode>()
     while (!match(state, TokenType.END) and !match(state, TokenType.ELSE) and !match(state, TokenType.ELSEIF)) {
         while (match(state, TokenType.SEMI_COLON, true)) {
         }
@@ -322,7 +322,7 @@ private fun ifStatement(state: ParserState): Statement {
         var firstToken = state.last()
         val elseifCondition = expression(state)
         if (!match(state, TokenType.THEN, true)) error("Expected then")
-        val elseIfBody = mutableListOf<Statement>()
+        val elseIfBody = mutableListOf<StatementNode>()
         while (!match(state, TokenType.ELSE) and !match(state, TokenType.ELSEIF) and !match(state, TokenType.END)) {
             while (match(state, TokenType.SEMI_COLON, true)) {
             }
@@ -330,7 +330,7 @@ private fun ifStatement(state: ParserState): Statement {
             while (match(state, TokenType.SEMI_COLON, true)) {
             }
         }
-        elseIfs.add(IfStatement(elseifCondition, elseIfBody, emptyList<IfStatement>(), emptyList<Statement>(), firstToken, state.last()))
+        elseIfs.add(IfNode(elseifCondition, elseIfBody, emptyList<IfNode>(), emptyList<StatementNode>(), firstToken, state.last()))
     }
     if (match(state, TokenType.ELSE, true)) {
         while (match(state, TokenType.SEMI_COLON, true)) {
@@ -340,7 +340,7 @@ private fun ifStatement(state: ParserState): Statement {
         }
     }
     if (!match(state, TokenType.END, true)) error("Expected end")
-    return IfStatement(condition, trueBody, elseIfs, falseBody, firstToken, state.last())
+    return IfNode(condition, trueBody, elseIfs, falseBody, firstToken, state.last())
 }
 
 private val binaryOpGroups = listOf(
@@ -355,82 +355,82 @@ private val binaryOpGroups = listOf(
 
 private val unaryOperators = listOf(TokenType.MINUS, TokenType.PLUS, TokenType.NOT)
 
-private fun expression(state: ParserState): Expression {
+private fun expression(state: ParserState): ExpressionNode {
     return ternaryOperator(state)
 }
 
-private fun ternaryOperator(state: ParserState): Expression {
+private fun ternaryOperator(state: ParserState): ExpressionNode {
     val firstToken = state.current()
     val left = binaryOperator(state, 0)
 
     if (match(state, TokenType.QUESTION, true)) {
-        val middle = ternaryOperator(state);
+        val middle = ternaryOperator(state)
         if (!match(state, TokenType.COLON, true)) error("Expected colon for ternary operator")
-        val right = ternaryOperator(state);
-        return TernaryOperator(left, middle, right, firstToken, state.last());
+        val right = ternaryOperator(state)
+        return TernaryOperatorNode(left, middle, right, firstToken, state.last())
     } else {
-        return left;
+        return left
     }
 }
 
-private fun binaryOperator(state: ParserState, level: Int): Expression {
+private fun binaryOperator(state: ParserState, level: Int): ExpressionNode {
     var firstToken = state.current()
     val nextLevel = level + 1
     var left = if (nextLevel == binaryOpGroups.size) unaryOperator(state) else binaryOperator(state, nextLevel)
 
-    val ops = binaryOpGroups[level];
+    val ops = binaryOpGroups[level]
     while (match(state, ops)) {
         val opType = next(state)
         val right = if (nextLevel == binaryOpGroups.size) unaryOperator(state) else binaryOperator(state, nextLevel)
-        left = BinaryOperator(opType, left, right, firstToken, state.last())
+        left = BinaryOperatorNode(opType, left, right, firstToken, state.last())
         firstToken = state.current()
     }
 
     return left
 }
 
-private fun unaryOperator(state: ParserState): Expression {
+private fun unaryOperator(state: ParserState): ExpressionNode {
     var firstToken = state.tokens[state.currentToken]
     if (match(state, unaryOperators)) {
-        return UnaryOperator(next(state), unaryOperator(state), firstToken, state.last())
+        return UnaryOperatorNode(next(state), unaryOperator(state), firstToken, state.last())
     } else {
         return factor(state)
     }
 }
 
-private fun factor(state: ParserState): Expression {
+private fun factor(state: ParserState): ExpressionNode {
     var firstToken = state.current()
 
     // match paranthesised expressions
     if (match(state, TokenType.L_PARA, true)) {
         val expr = expression(state)
         if (!match(state, TokenType.R_PARA, true)) error(state, "Expected closing paranthesis )")
-        return Parenthesis(expr, firstToken, state.last())
+        return ParenthesisNode(expr, firstToken, state.last())
     }
 
     // match literals
     if (match(state, TokenType.TRUE) or match(state, TokenType.FALSE)) {
-        return BooleanLiteral(next(state), firstToken, state.last());
+        return BooleanLiteralNode(next(state), firstToken, state.last())
     }
     if (match(state, TokenType.NUMBER)) {
-        return NumberLiteral(next(state), firstToken, state.last())
+        return NumberLiteralNode(next(state), firstToken, state.last())
     }
     if (match(state, TokenType.CHARACTER)) {
-        return CharacterLiteral(next(state), firstToken, state.last())
+        return CharacterLiteralNode(next(state), firstToken, state.last())
     }
     if (match(state, TokenType.STRING)) {
-        return StringLiteral(next(state), firstToken, state.last())
+        return StringLiteralNode(next(state), firstToken, state.last())
     }
 
     // match variable access, field access, array access and function calls
     if (match(state, TokenType.IDENTIFIER)) {
-        var lastExpr: Expression = VariableAccess(next(state), firstToken, state.last())
+        var lastExpr: ExpressionNode = VariableAccessNode(next(state), firstToken, state.last())
 
         while (true) {
             // function or method call
             if (match(state, TokenType.L_PARA, true)) {
                 firstToken = state.last()
-                val args = mutableListOf<Expression>()
+                val args = mutableListOf<ExpressionNode>()
                 if (!match(state, TokenType.R_PARA)) {
                     while (true) {
                         args.add(expression(state))
@@ -441,7 +441,7 @@ private fun factor(state: ParserState): Expression {
                 } else {
                     if (!match(state, TokenType.R_PARA, true)) error(state, "Expected closing paranthesis )")
                 }
-                lastExpr = FunctionCall(lastExpr, args, firstToken, state.last())
+                lastExpr = FunctionCallNode(lastExpr, args, firstToken, state.last())
                 continue
             }
 
@@ -450,14 +450,14 @@ private fun factor(state: ParserState): Expression {
                 firstToken = state.last()
                 val expr = expression(state)
                 if (!match(state, TokenType.R_BRACK, true)) error(state, "Expected closing bracket ]")
-                lastExpr = ArrayAccess(lastExpr, expr, firstToken, state.last())
+                lastExpr = ArrayAccessNode(lastExpr, expr, firstToken, state.last())
                 continue
             }
 
             // field access
             if (match(state, TokenType.DOT, true)) {
                 if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected field name")
-                lastExpr = FieldAccess(lastExpr, next(state), state.last(), state.last())
+                lastExpr = FieldAccessNode(lastExpr, next(state), state.last(), state.last())
                 continue
             }
             break
@@ -466,5 +466,5 @@ private fun factor(state: ParserState): Expression {
     }
 
     error(state, "Expected a number, character, string, variable name or function call")
-    return EmptyExpression(firstToken, state.last())
+    return EmptyExpressionNode(firstToken, state.last())
 }

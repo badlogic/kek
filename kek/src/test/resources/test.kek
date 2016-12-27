@@ -1,4 +1,4 @@
-namespace my.fucking.thing
+module my.fucking.thing
 
 import math
 

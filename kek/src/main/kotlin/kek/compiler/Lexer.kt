@@ -1,4 +1,6 @@
-package kek
+package kek.compiler
+
+import kek.runtime.*
 
 enum class TokenType(val keyword: String = "", val hasOverlap: Boolean = false) {
 
@@ -31,7 +33,7 @@ enum class TokenType(val keyword: String = "", val hasOverlap: Boolean = false) 
     DIV("/"),
     MODULO("%"),
 
-    NAMESPACE("namespace", true),
+    MODULE("module", true),
     IMPORT("import", true),
     STRUCTURE("structure", true),
     FUNCTION("function", true),
@@ -71,13 +73,13 @@ data class Token(val type: TokenType,
                  val column: Int,
                  val text: String)
 
-private data class LexerState(var input: CharSequence = "",
+private data class LexerState(var input: Source,
                               var index: Int = 0,
                               var line: Int = 1,
                               var column: Int = 1,
                               var tokens: MutableList<Token> = mutableListOf<Token>())
 
-fun tokenize(input: CharSequence): List<Token> {
+fun tokenize(input: Source): List<Token> {
     val state = LexerState(input)
     var lastIndex = 0
     while (true) {
@@ -110,7 +112,7 @@ fun tokenize(input: CharSequence): List<Token> {
         tryMatchIdentifierOrKeyword(state)
 
         if (lastIndex == state.index) {
-            throw CompilerException(state.input.toString(), "Unknown token", state.line, state.column, state.column)
+            throw CompilerException(state.input, "Unknown token", state.line, state.column, state.column)
         }
         lastIndex = state.index
     }
@@ -118,43 +120,43 @@ fun tokenize(input: CharSequence): List<Token> {
 
 private fun tryMatchCharacter(state: LexerState) {
     if (isEOF(state)) return
-    var c = state.input[state.index]
+    var c = state.input.sourceCode[state.index]
     if (c != '\'') return
 
     val start = state.index
     val column = state.column
 
     nextChar(state)
-    if (isEOF(state)) throw CompilerException(state.input.toString(), "Expected character to be closed via \'", state.line, column, state.column)
+    if (isEOF(state)) throw CompilerException(state.input, "Expected character to be closed via \'", state.line, column, state.column)
 
-    c = state.input[state.index]
+    c = state.input.sourceCode[state.index]
     if (c == '\\') {
         nextChar(state)
-        if (isEOF(state)) throw CompilerException(state.input.toString(), "Expected escape sequence to be completed with \\, \', n, t", state.line, column, state.column)
+        if (isEOF(state)) throw CompilerException(state.input, "Expected escape sequence to be completed with \\, \', n, t", state.line, column, state.column)
 
-        c = state.input[state.index]
+        c = state.input.sourceCode[state.index]
         if ((c != '\\') and (c != '\'') and (c != 'n') and (c != 't')) {
-            throw CompilerException(state.input.toString(), "Expected escape sequence to be completed with \\, \', n, t", state.line, column, state.column)
+            throw CompilerException(state.input, "Expected escape sequence to be completed with \\, \', n, t", state.line, column, state.column)
         }
         nextChar(state)
     } else if (c == '\'') {
         nextChar(state)
-        state.tokens.add(Token(TokenType.CHARACTER, start, state.line, column, state.input.substring(start, state.index)))
+        state.tokens.add(Token(TokenType.CHARACTER, start, state.line, column, state.input.sourceCode.substring(start, state.index)))
         return
     } else {
         nextChar(state)
     }
 
-    if (isEOF(state)) throw CompilerException(state.input.toString(), "Expected character to be closed via \'", state.line, column, state.column)
-    if ((state.input[state.index] != '\'')) throw CompilerException(state.input.toString(), "Expected character to be closed via \'", state.line, column, state.column)
+    if (isEOF(state)) throw CompilerException(state.input, "Expected character to be closed via \'", state.line, column, state.column)
+    if ((state.input.sourceCode[state.index] != '\'')) throw CompilerException(state.input, "Expected character to be closed via \'", state.line, column, state.column)
     nextChar(state)
 
-    state.tokens.add(Token(TokenType.CHARACTER, start, state.line, column, state.input.substring(start, state.index)))
+    state.tokens.add(Token(TokenType.CHARACTER, start, state.line, column, state.input.sourceCode.substring(start, state.index)))
 }
 
 private fun tryMatchIdentifierOrKeyword(state: LexerState) {
     if (isEOF(state)) return
-    var c = state.input[state.index]
+    var c = state.input.sourceCode[state.index]
     if (!Character.isLetter(c)) return
 
     val start = state.index
@@ -164,12 +166,12 @@ private fun tryMatchIdentifierOrKeyword(state: LexerState) {
         if (isEOF(state)) {
             break;
         }
-        c = state.input[state.index]
+        c = state.input.sourceCode[state.index]
     }
 
     // identifiers may overlap with keywords, need to fix up
     // token type
-    val tokenText = state.input.substring(start, state.index)
+    val tokenText = state.input.sourceCode.substring(start, state.index)
     var tokenType = TokenType.IDENTIFIER
     for (type in TokenType.values()) {
         if (type.keyword.isNotEmpty() and type.hasOverlap) {
@@ -178,12 +180,12 @@ private fun tryMatchIdentifierOrKeyword(state: LexerState) {
             }
         }
     }
-    state.tokens.add(Token(tokenType, start, state.line, column, state.input.substring(start, state.index)))
+    state.tokens.add(Token(tokenType, start, state.line, column, state.input.sourceCode.substring(start, state.index)))
 }
 
 private fun tryMatchString(state: LexerState) {
     if (isEOF(state)) return
-    var c = state.input[state.index]
+    var c = state.input.sourceCode[state.index]
     if (c != '"') return
 
     val start = state.index
@@ -191,21 +193,21 @@ private fun tryMatchString(state: LexerState) {
 
     nextChar(state)
     do {
-        if (isEOF(state)) throw CompilerException(state.input.toString(), "Expected string to be closed via \"", state.line, column, state.column)
+        if (isEOF(state)) throw CompilerException(state.input, "Expected string to be closed via \"", state.line, column, state.column)
 
-        c = state.input[state.index]
+        c = state.input.sourceCode[state.index]
         if (c == '\\') {
             nextChar(state)
-            if (isEOF(state)) throw CompilerException(state.input.toString(), "Expected escape sequence to be completed with \\, \", n, t", state.line, column, state.column)
+            if (isEOF(state)) throw CompilerException(state.input, "Expected escape sequence to be completed with \\, \", n, t", state.line, column, state.column)
 
-            c = state.input[state.index]
+            c = state.input.sourceCode[state.index]
             if ((c != '\\') and (c != '\"') and (c != 'n') and (c != 't')) {
-                throw CompilerException(state.input.toString(), "Expected escape sequence to be completed with \\, \", n, t", state.line, column, state.column)
+                throw CompilerException(state.input, "Expected escape sequence to be completed with \\, \", n, t", state.line, column, state.column)
             }
             nextChar(state)
         } else if (c == '"') {
             nextChar(state)
-            state.tokens.add(Token(TokenType.STRING, start, state.line, column, state.input.substring(start, state.index)))
+            state.tokens.add(Token(TokenType.STRING, start, state.line, column, state.input.sourceCode.substring(start, state.index)))
             return
         } else {
             nextChar(state)
@@ -215,7 +217,7 @@ private fun tryMatchString(state: LexerState) {
 
 private fun tryMatchNumber(state: LexerState) {
     if (isEOF(state)) return
-    var c = state.input[state.index]
+    var c = state.input.sourceCode[state.index]
     if (!Character.isDigit(c)) return
 
     val start = state.index
@@ -223,40 +225,40 @@ private fun tryMatchNumber(state: LexerState) {
     while (Character.isDigit(c)) {
         nextChar(state)
         if (isEOF(state)) {
-            state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.substring(start)))
+            state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.sourceCode.substring(start)))
             return
         }
-        c = state.input[state.index]
+        c = state.input.sourceCode[state.index]
     }
 
     if (c != '.') {
-        state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.substring(start, state.index)))
+        state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.sourceCode.substring(start, state.index)))
         return
     }
 
     nextChar(state)
     if (isEOF(state)) {
-        state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.substring(start, state.index)))
+        state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.sourceCode.substring(start, state.index)))
         return
     }
 
-    c = state.input[state.index]
+    c = state.input.sourceCode[state.index]
     while (Character.isDigit(c)) {
         nextChar(state)
         if (isEOF(state)) {
-            state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.substring(start)))
+            state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.sourceCode.substring(start)))
             return
         }
-        c = state.input[state.index]
+        c = state.input.sourceCode[state.index]
     }
 
-    state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.substring(start, state.index)))
+    state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.sourceCode.substring(start, state.index)))
 }
 
 private fun tryMatch(state: LexerState, needle: String): Boolean {
     with(state) {
-        if (input.length <= index + needle.length - 1) return false
-        if (input.startsWith(needle, index)) {
+        if (input.sourceCode.length <= index + needle.length - 1) return false
+        if (input.sourceCode.startsWith(needle, index)) {
             index += needle.length
             column += needle.length
             return true
@@ -274,14 +276,14 @@ private fun nextChar(state: LexerState) {
 }
 
 private fun isEOF(state: LexerState, lookAhead: Int = 0): Boolean {
-    return state.index + lookAhead >= state.input.length
+    return state.index + lookAhead >= state.input.sourceCode.length
 }
 
 private fun skipNewLine(state: LexerState): Boolean {
     if (isEOF(state)) return false
 
     with(state) {
-        if (input[index] == '\n') {
+        if (input.sourceCode[index] == '\n') {
             index++
             line++
             column = 1
@@ -295,7 +297,7 @@ private fun skipNewLine(state: LexerState): Boolean {
 private fun skipWhitespace(state: LexerState) {
     while (!isEOF(state)) {
         with(state) {
-            val c = input[index]
+            val c = input.sourceCode[index]
             if (!Character.isWhitespace(c)) return
             if (!skipNewLine(state)) nextChar(state)
         }
@@ -306,7 +308,7 @@ private fun skipComments(state: LexerState) {
     if (isEOF(state)) return
 
     with(state) {
-        var c = input[index]
+        var c = input.sourceCode[index]
 
         if (tryMatch(state, "//")) {
             while (true) {
@@ -318,7 +320,7 @@ private fun skipComments(state: LexerState) {
 
         if (tryMatch(state, "/*")) {
             while (true) {
-                if (isEOF(state)) throw CompilerException(input.toString(), "Line or block comment wasn't completed", state.line, state.column, state.column)
+                if (isEOF(state)) throw CompilerException(input, "Line or block comment wasn't completed", state.line, state.column, state.column)
                 if (!skipNewLine(state)) {
                     if (tryMatch(state, "*/")) return
                     nextChar(state)

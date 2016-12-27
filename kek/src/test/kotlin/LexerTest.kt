@@ -1,33 +1,35 @@
 package kek
 
+import kek.compiler.*
+import kek.runtime.*
 import org.junit.Test
-import org.junit.Assert.*;
+import org.junit.Assert.*
 
 class LexerTest {
     @Test
     fun testEmptySource() {
-        var tokens = tokenize("")
+        var tokens = tokenize(Source("", ""))
         assertEquals(1, tokens.size)
         assertEquals(Token(TokenType.EOF, 0, 1, 1, ""), tokens[0])
     }
 
     @Test
     fun testNewLine() {
-        var tokens = tokenize("    \n   \n  ");
+        var tokens = tokenize(Source("", "    \n   \n  "));
         assertEquals(1, tokens.size)
         assertEquals(Token(TokenType.EOF, 11, 3, 3, ""), tokens[0])
     }
 
     @Test
     fun testLineComment() {
-        var tokens = tokenize("    \n// this is a test")
+        var tokens = tokenize(Source("", "    \n// this is a test"))
         assertEquals(1, tokens.size)
         assertEquals(Token(TokenType.EOF, 22, 2, 18, ""), tokens[0])
     }
 
     @Test
     fun testBlockComment() {
-        var tokens = tokenize("    \n/* this is a \n  test */\n")
+        var tokens = tokenize(Source("", "    \n/* this is a \n  test */\n"))
         assertEquals(1, tokens.size)
         assertEquals(Token(TokenType.EOF, 29, 4, 1, ""), tokens[0])
     }
@@ -35,7 +37,7 @@ class LexerTest {
     @Test
     fun testUnknownToken() {
         try {
-            var tokens = tokenize("// this is a test\n /* this is \n another test */  §")
+            var tokens = tokenize(Source("", "// this is a test\n /* this is \n another test */  §"))
             assertTrue(false)
         } catch (e: CompilerException) {
             // expected
@@ -44,7 +46,7 @@ class LexerTest {
 
     @Test
     fun testNumber() {
-        var tokens = tokenize("0 1234 123.2 .234 ")
+        var tokens = tokenize(Source("","0 1234 123.2 .234 "))
         assertEquals(6, tokens.size)
         assertEquals(TokenType.NUMBER, tokens[1].type)
         assertEquals("1234", tokens[1].text)
@@ -59,7 +61,7 @@ class LexerTest {
 
     @Test
     fun testIdentifier() {
-        var tokens = tokenize("a ab abC a123Bc a_c_d 1ab")
+        var tokens = tokenize(Source("", "a ab abC a123Bc a_c_d 1ab"))
         assertEquals(8, tokens.size)
         assertEquals(TokenType.IDENTIFIER, tokens[0].type)
         assertEquals("a", tokens[0].text)
@@ -80,28 +82,28 @@ class LexerTest {
 
     @Test
     fun testString() {
-        val tokens = tokenize(""" "This is a string \\ \n \t \"" """)
+        val tokens = tokenize(Source("", """ "This is a string \\ \n \t \"" """))
         assertEquals(2, tokens.size)
         assertEquals(TokenType.STRING, tokens[0].type)
         assertEquals(""""This is a string \\ \n \t \""""", tokens[0].text)
         assertEquals(TokenType.EOF, tokens[1].type)
 
         try {
-            val tokens = tokenize(""" "this is a """);
+            val tokens = tokenize(Source("", """ "this is a """));
             assertTrue(false)
         } catch(e: CompilerException) {
             // expected
         }
 
         try {
-            val tokens = tokenize(""" "\" """);
+            val tokens = tokenize(Source("", """ "\" """))
             assertTrue(false)
         } catch(e: CompilerException) {
             // expected
         }
 
         try {
-            val tokens = tokenize(""" "\z" """);
+            val tokens = tokenize(Source("", """ "\z" """))
             assertTrue(false)
         } catch(e: CompilerException) {
             // expected
@@ -110,7 +112,7 @@ class LexerTest {
 
     @Test
     fun testCharacter() {
-        val tokens = tokenize(""" 'a' '' '\'' '\n' '\t' """)
+        val tokens = tokenize(Source("", """ 'a' '' '\'' '\n' '\t' """))
         assertEquals(6, tokens.size)
         assertEquals(TokenType.CHARACTER, tokens[0].type)
         assertEquals("'a'", tokens[0].text)
@@ -125,21 +127,21 @@ class LexerTest {
         assertEquals(TokenType.EOF, tokens[5].type)
 
         try {
-            val tokens = tokenize(" 'a");
+            val tokens = tokenize(Source("", " 'a"));
             assertTrue(false)
         } catch(e: CompilerException) {
             // expected
         }
 
         try {
-            val tokens = tokenize(""" '\' """");
+            val tokens = tokenize(Source("", """ '\' """"))
             assertTrue(false)
         } catch(e: CompilerException) {
             // expected
         }
 
         try {
-            val tokens = tokenize(""" '\z' """);
+            val tokens = tokenize(Source("", """ '\z' """))
             assertTrue(false)
         } catch(e: CompilerException) {
             // expected
@@ -148,7 +150,7 @@ class LexerTest {
 
     @Test
     fun testKeywordIdentifierOverlap() {
-        var tokens = tokenize ("and andThisIsAnIdentifier")
+        var tokens = tokenize (Source("", "and andThisIsAnIdentifier"))
         assertEquals(tokens.size, 3)
         assertEquals(TokenType.AND, tokens[0].type)
         assertEquals("and", tokens[0].text)
@@ -166,7 +168,7 @@ class LexerTest {
             expected.add(t)
         }
         expected.add(TokenType.EOF)
-        var tokens = tokenize(buffer.toString())
+        var tokens = tokenize(Source("", buffer.toString()))
         var i = 0
         assertEquals(expected.size, tokens.size)
         for(e in expected) {

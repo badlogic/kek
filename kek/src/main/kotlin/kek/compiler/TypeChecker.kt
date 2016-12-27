@@ -1,4 +1,4 @@
-package kek
+package kek.compiler
 
 interface TypeInfo
 
@@ -13,10 +13,6 @@ class FunctionType(val namespace: String, val name: String, val parameters: List
 class FieldType(val name: String, type: TypeInfo) : TypeInfo
 
 class StructType(val namespace: String, val name: String, val fields: List<FieldType> = mutableListOf<FieldType>()) : TypeInfo
-
-val VoidType = BasicType("kek", "void")
-val IntType = BasicType("kek", "int")
-val FloatType = BasicType("kek", "float")
 
 class SymbolTable {
     private val tables = mutableListOf<MutableMap<String, TypeInfo>>()
@@ -54,12 +50,12 @@ class SymbolTable {
 
 data class TypeCheckerState(val symbolTable: SymbolTable = SymbolTable())
 
-fun typeCheck(compilationUnits: List<CompilationUnit>): TypeCheckerState {
+fun typeCheck(compilationUnits: List<CompilationUnitNode>): TypeCheckerState {
     val state = TypeCheckerState()
 
     return state
 }
 
-private fun gatherGlobals(compilationUnits: List<CompilationUnit>) {
-    
+private fun gatherGlobals(compilationUnits: List<CompilationUnitNode>) {
+
 }
