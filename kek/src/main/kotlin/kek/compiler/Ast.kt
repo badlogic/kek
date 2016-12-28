@@ -1,6 +1,6 @@
 package kek.compiler
 
-import kek.runtime.*
+import kek.runtime.Source
 
 abstract class AstNode(val firstToken: Token, val lastToken: Token) {
     val annotations = mutableMapOf<Class<Any>, Any>()
@@ -25,7 +25,7 @@ class ImportNode(val importName: String, firstToken: Token, lastToken: Token) : 
 class StructureNode(val name: Token, val fields: List<VariableDeclarationNode>, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
 }
 
-class FunctionNode(val name: Token, val parameters: List<ParameterNode>, val returnType: TypeNode, val body: List<StatementNode>, val extern: Boolean, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
+class FunctionNode(val name: Token, val parameters: List<ParameterNode>, val returnType: TypeNode, val body: BlockNode, val extern: Boolean, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
 }
 
 class ParameterNode(val name: Token, val type: TypeNode, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
@@ -43,87 +43,66 @@ open class TypeNode(val name: List<Token>, val isArray: Boolean, val isOptional:
     }
 }
 
-class NoTypeNode(firstToken: Token, lastToken: Token) : TypeNode(emptyList<Token>(), false, false, firstToken, lastToken) {
-}
+class NoTypeNode(firstToken: Token, lastToken: Token) : TypeNode(emptyList<Token>(), false, false, firstToken, lastToken)
 
-abstract class StatementNode(firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
-}
+class BlockNode(val statements: List<StatementNode>, firstToken: Token, lastToken: Token): AstNode(firstToken, lastToken)
 
-class VariableDeclarationNode(val name: Token, val type: TypeNode, val initializer: ExpressionNode, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken) {
-}
+abstract class StatementNode(firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken)
 
-class ReturnNode(val expression: ExpressionNode, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken) {
-}
+class VariableDeclarationNode(val name: Token, val type: TypeNode, val initializer: ExpressionNode, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
-class IfNode(val condition: ExpressionNode, val trueBody: List<StatementNode>, val elseIfs: List<IfNode>, val falseBody: List<StatementNode>, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken) {
-}
+class ReturnNode(val expression: ExpressionNode, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
-class ForNode(val initializer: List<VariableDeclarationNode>, val condition: ExpressionNode, val increment: List<ExpressionNode>, val body: List<StatementNode>, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken) {
-}
+class IfNode(val condition: ExpressionNode, val trueBody: BlockNode, val elseIfs: List<IfNode>, val falseBody: BlockNode, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
-class WhileNode(val condition: ExpressionNode, val body: List<StatementNode>, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken) {
-}
+class ForNode(val initializer: List<VariableDeclarationNode>, val condition: ExpressionNode, val increment: List<ExpressionNode>, val body: BlockNode, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
-class DoNode(val condition: ExpressionNode, val body: List<StatementNode>, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken) {
-}
+class WhileNode(val condition: ExpressionNode, val body: BlockNode, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
-class BreakNode(firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken) {
-}
+class DoNode(val condition: ExpressionNode, val body: BlockNode, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
-class ContinueNode(firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken) {
-}
+class BreakNode(firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
-abstract class ExpressionNode(firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken) {
-}
+class ContinueNode(firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
-class EmptyExpressionNode(firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+abstract class ExpressionNode(firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
-class UnaryOperatorNode(val opType: Token, val expr: ExpressionNode, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class EmptyExpressionNode(firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
-class BinaryOperatorNode(val opType: Token, val left: ExpressionNode, val right: ExpressionNode, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class UnaryOperatorNode(val opType: Token, val expr: ExpressionNode, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
-class TernaryOperatorNode(val left: ExpressionNode, val middle: ExpressionNode, val right: ExpressionNode, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class BinaryOperatorNode(val opType: Token, val left: ExpressionNode, val right: ExpressionNode, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
-class CharacterLiteralNode(val literal: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class TernaryOperatorNode(val left: ExpressionNode, val middle: ExpressionNode, val right: ExpressionNode, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
-class StringLiteralNode(val literal: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class CharacterLiteralNode(val literal: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
-class NumberLiteralNode(val literal: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class StringLiteralNode(val literal: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
-class BooleanLiteralNode(val literal: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class NumberLiteralNode(val literal: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
-class NullLiteralNode(firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class BooleanLiteralNode(val literal: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
-class VariableAccessNode(val varName: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class NullLiteralNode(firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
-class ArrayAccessNode(val array: ExpressionNode, val index: ExpressionNode, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class VariableAccessNode(val varName: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
-class FieldAccessNode(val base: ExpressionNode, val varName: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class ArrayAccessNode(val array: ExpressionNode, val index: ExpressionNode, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
-class FunctionCallNode(val function: ExpressionNode, val arguments: List<ExpressionNode>, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class FieldAccessNode(val base: ExpressionNode, val varName: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
-// needed for formatting
-class ParenthesisNode(val expr: ExpressionNode, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
-}
+class FunctionCallNode(val function: ExpressionNode, val arguments: List<ExpressionNode>, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
+
+class ParenthesisNode(val expr: ExpressionNode, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
 interface AstVisitor {
+    fun pushScope(n: AstNode)
+    fun popScope(n: AstNode)
     fun namespace(namespace: String)
     fun compilationUnit(n: CompilationUnitNode)
     fun structure(n: StructureNode)
     fun function(n: FunctionNode)
+    fun block(n: BlockNode)
     fun variableDeclaration(n: VariableDeclarationNode)
     fun returnStatement(n: ReturnNode)
     fun ifStatement(n: IfNode)
@@ -148,6 +127,12 @@ interface AstVisitor {
 }
 
 abstract class AstVisitorAdapter : AstVisitor {
+    override fun pushScope(n: AstNode) {
+    }
+
+    override fun popScope(n: AstNode) {
+    }
+
     override fun namespace(namespace: String) {
     }
 
@@ -158,6 +143,9 @@ abstract class AstVisitorAdapter : AstVisitor {
     }
 
     override fun function(n: FunctionNode) {
+    }
+
+    override fun block(n: BlockNode) {
     }
 
     override fun variableDeclaration(n: VariableDeclarationNode) {
@@ -228,6 +216,7 @@ fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<
     if (!include.isEmpty() and !include.contains(ast.javaClass)) return
     when (ast) {
         is CompilationUnitNode -> {
+            visitor.pushScope(ast)
             visitor.namespace(ast.module)
 
             for (s in ast.structs) {
@@ -239,13 +228,23 @@ fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<
             }
 
             visitor.compilationUnit(ast)
+            visitor.popScope(ast)
         }
         is StructureNode -> {
+            visitor.pushScope(ast)
             visitor.structure(ast)
+            visitor.popScope(ast)
         }
         is FunctionNode -> {
-            for (s in ast.body) traverseAstDepthFirst(s, visitor, include)
+            visitor.pushScope(ast)
+            traverseAstDepthFirst(ast.body, visitor, include)
             visitor.function(ast)
+            visitor.popScope(ast)
+        }
+        is BlockNode -> {
+            visitor.pushScope(ast)
+            for (s in ast.statements) traverseAstDepthFirst(s, visitor, include)
+            visitor.popScope(ast)
         }
         is VariableDeclarationNode -> {
             visitor.variableDeclaration(ast)
@@ -255,25 +254,27 @@ fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<
         }
         is IfNode -> {
             traverseAstDepthFirst(ast.condition, visitor, include)
-            for (s in ast.trueBody) traverseAstDepthFirst(s, visitor, include)
+            traverseAstDepthFirst(ast.trueBody, visitor, include)
             for (e in ast.elseIfs) traverseAstDepthFirst(e, visitor, include)
-            for (s in ast.falseBody) traverseAstDepthFirst(s, visitor, include)
+            traverseAstDepthFirst(ast.falseBody, visitor, include)
             visitor.ifStatement(ast)
         }
         is ForNode -> {
+            visitor.pushScope(ast)
             for (s in ast.initializer) traverseAstDepthFirst(s, visitor, include)
             traverseAstDepthFirst(ast.condition, visitor, include)
             for (s in ast.increment) traverseAstDepthFirst(s, visitor, include)
-            for (s in ast.body) traverseAstDepthFirst(s, visitor, include)
+            traverseAstDepthFirst(ast.body, visitor, include)
             visitor.forStatement(ast)
+            visitor.popScope(ast)
         }
         is WhileNode -> {
             traverseAstDepthFirst(ast.condition, visitor, include)
-            for (s in ast.body) traverseAstDepthFirst(s, visitor, include)
+            traverseAstDepthFirst(ast.body, visitor, include)
             visitor.whileStatement(ast)
         }
         is DoNode -> {
-            for (s in ast.body) traverseAstDepthFirst(s, visitor, include)
+            traverseAstDepthFirst(ast.body, visitor, include)
             traverseAstDepthFirst(ast.condition, visitor, include)
             visitor.doStatement(ast)
         }
@@ -362,33 +363,40 @@ fun printAst(cu: CompilationUnitNode): String {
 }
 
 fun printAstNode(p: String, n: AstNode, nodes: StringBuffer, edges: StringBuffer): String {
-    if (n is FunctionNode) return printFunctionDefinition(n, nodes, edges)
-    else if (n is StructureNode) return printStructureDefinition(n, nodes, edges)
-    else if (n is ParameterNode) return printParameter(p, n, nodes, edges)
-    else if (n is UnaryOperatorNode) return printUnaryOperator(p, n, nodes, edges)
-    else if (n is BinaryOperatorNode) return printBinaryOperator(p, n, nodes, edges)
-    else if (n is CharacterLiteralNode) return printCharacterLiteral(p, n, nodes, edges)
-    else if (n is StringLiteralNode) return printStringLiteral(p, n, nodes, edges)
-    else if (n is NumberLiteralNode) return printNumberLiteral(p, n, nodes, edges)
-    else if (n is BooleanLiteralNode) return printBooleanLiteral(p, n, nodes, edges)
-    else if (n is NullLiteralNode) return printNullLiteral(p, n, nodes, edges)
-    else if (n is VariableAccessNode) return printVariableAccess(p, n, nodes, edges)
-    else if (n is ArrayAccessNode) return printArrayAccess(p, n, nodes, edges)
-    else if (n is FieldAccessNode) return printFieldAccess(p, n, nodes, edges)
-    else if (n is FunctionCallNode) return printFunctionCall(p, n, nodes, edges)
-    else if (n is VariableDeclarationNode) return printVariableDeclaration(p, n, nodes, edges)
-    else if (n is IfNode) return printIfStatement(p, n, nodes, edges)
-    else if (n is ForNode) return printForStatement(p, n, nodes, edges)
-    else if (n is WhileNode) return printWhileStatement(p, n, nodes, edges)
-    else if (n is DoNode) return printDoStatement(p, n, nodes, edges)
-    else if (n is ReturnNode) return printReturnStatement(p, n, nodes, edges)
-    else if (n is BreakNode) return printBreakStatement(p, nodes, edges)
-    else if (n is ContinueNode) return printContinueStatement(p, nodes, edges)
-    else if (n is TernaryOperatorNode) return printTernaryOperator(p, n, nodes, edges)
-    else if (n is EmptyExpressionNode) return "empty"
-    else if (n is ParenthesisNode) return printParanthesis(p, n, nodes, edges)
-    else if (n is ImportNode) return printImport(p, n, nodes, edges)
-    else throw RuntimeException("Unknown AST node $n")
+    when(n) {
+        is StructureNode -> return printStructureDefinition(n, nodes, edges)
+        is FunctionNode -> return printFunctionDefinition(p, n, nodes, edges)
+        is BlockNode -> return printBlock(p, n, nodes, edges)
+        is ParameterNode -> return printParameter(p, n, nodes, edges)
+        is UnaryOperatorNode -> return printUnaryOperator(p, n, nodes, edges)
+        is BinaryOperatorNode -> return printBinaryOperator(p, n, nodes, edges)
+        is CharacterLiteralNode -> return printCharacterLiteral(p, n, nodes, edges)
+        is StringLiteralNode -> return printStringLiteral(p, n, nodes, edges)
+        is NumberLiteralNode -> return printNumberLiteral(p, n, nodes, edges)
+        is BooleanLiteralNode -> return printBooleanLiteral(p, n, nodes, edges)
+        is NullLiteralNode -> return printNullLiteral(p, n, nodes, edges)
+        is VariableAccessNode -> return printVariableAccess(p, n, nodes, edges)
+        is ArrayAccessNode -> return printArrayAccess(p, n, nodes, edges)
+        is FieldAccessNode -> return printFieldAccess(p, n, nodes, edges)
+        is FunctionCallNode -> return printFunctionCall(p, n, nodes, edges)
+        is VariableDeclarationNode -> return printVariableDeclaration(p, n, nodes, edges)
+        is IfNode -> return printIfStatement(p, n, nodes, edges)
+        is ForNode -> return printForStatement(p, n, nodes, edges)
+        is WhileNode -> return printWhileStatement(p, n, nodes, edges)
+        is DoNode -> return printDoStatement(p, n, nodes, edges)
+        is ReturnNode -> return printReturnStatement(p, n, nodes, edges)
+        is BreakNode -> return printBreakStatement(p, nodes, edges)
+        is ContinueNode -> return printContinueStatement(p, nodes, edges)
+        is TernaryOperatorNode -> return printTernaryOperator(p, n, nodes, edges)
+        is EmptyExpressionNode -> return "empty"
+        is ParenthesisNode -> return printParanthesis(p, n, nodes, edges)
+        is ImportNode -> return printImport(p, n, nodes, edges)
+        else -> throw RuntimeException("Unknown AST node $n")
+    }
+}
+
+fun  printBlock(p: String, n: BlockNode, nodes: StringBuffer, edges: StringBuffer): String {
+    return printAstNodeList(p, n.statements, nodes, edges)
 }
 
 fun printImport(p: String, n: ImportNode, nodes: StringBuffer, edges: StringBuffer): String {
@@ -425,7 +433,7 @@ fun printWhileStatement(p: String, n: WhileNode, nodes: StringBuffer, edges: Str
     nodes.append("$name [label=\"While\"]\n")
     edges.append("$p->$name\n")
     printAstNode(name, n.condition, nodes, edges)
-    printAstNodeList(name, n.body, nodes, edges)
+    printAstNode(name, n.body, nodes, edges)
     return name
 }
 
@@ -434,7 +442,7 @@ fun printDoStatement(p: String, n: DoNode, nodes: StringBuffer, edges: StringBuf
     nodes.append("$name [label=\"Do\"]\n")
     edges.append("$p->$name\n")
     printAstNode(name, n.condition, nodes, edges)
-    printAstNodeList(name, n.body, nodes, edges)
+    printAstNode(name, n.body, nodes, edges)
     return name
 }
 
@@ -445,7 +453,7 @@ fun printForStatement(p: String, n: ForNode, nodes: StringBuffer, edges: StringB
     printAstNodeList(name, n.initializer, nodes, edges)
     printAstNode(name, n.condition, nodes, edges)
     printAstNodeList(name, n.increment, nodes, edges)
-    printAstNodeList(name, n.body, nodes, edges)
+    printAstNode(name, n.body, nodes, edges)
     return name
 }
 
@@ -470,9 +478,9 @@ fun printIfStatement(p: String, n: IfNode, nodes: StringBuffer, edges: StringBuf
     nodes.append("$name [label=\"If\"]\n")
     edges.append("$p->$name\n")
     printAstNode(name, n.condition, nodes, edges)
-    printAstNodeList(name, n.trueBody, nodes, edges)
+    printAstNode(name, n.trueBody, nodes, edges)
     printAstNodeList(name, n.elseIfs, nodes, edges)
-    printAstNodeList(name, n.falseBody, nodes, edges)
+    printAstNode(name, n.falseBody, nodes, edges)
     return name
 }
 
@@ -594,16 +602,14 @@ fun printStructureDefinition(n: StructureNode, nodes: StringBuffer, edges: Strin
     return name
 }
 
-fun printFunctionDefinition(n: FunctionNode, nodes: StringBuffer, edges: StringBuffer): String {
+fun printFunctionDefinition(p: String, n: FunctionNode, nodes: StringBuffer, edges: StringBuffer): String {
     val name = "f${i++}"
     nodes.append("$name [label=\"Function: ${n.name.text}, return: ${n.returnType.fullyQualfiedName()}\"]\n")
-    edges.append("cu->$name\n")
+    edges.append("$p->$name\n")
     for (p in n.parameters) printAstNode(name, p, nodes, edges)
 
     var last = name
-    for (s in n.body) {
-        last = printAstNode(last, s, nodes, edges)
-    }
+    printAstNode(name, n.body, nodes, edges)
 
     return name
 }

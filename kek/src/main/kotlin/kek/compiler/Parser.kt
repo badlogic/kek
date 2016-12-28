@@ -134,9 +134,9 @@ private fun function(state: ParserState): FunctionNode {
         returnType = type(state)
     }
 
-    if (extern) return FunctionNode(name, parameterList, returnType, emptyList(), extern, firstToken, state.last())
+    if (extern) return FunctionNode(name, parameterList, returnType, BlockNode(emptyList(), firstToken, state.last()), extern, firstToken, state.last())
 
-    val body = functionBody(state)
+    val body = block(state)
 
     if (!match(state, TokenType.END, true)) error(state, "Expected 'end' at end of function definition")
     return FunctionNode(name, parameterList, returnType, body, extern, firstToken, state.last())
@@ -187,28 +187,29 @@ private fun type(state: ParserState): TypeNode {
     return TypeNode(identifiers, isArray, isOptional, firstToken, state.last())
 }
 
-private fun functionBody(state: ParserState): List<StatementNode> {
+private fun block(state: ParserState, endTokens: List<TokenType> = listOf(TokenType.END)): BlockNode {
+    val firstToken = state.current()
     val statements = mutableListOf<StatementNode>()
-    while (!match(state, TokenType.END)) {
+    while (!match(state, endTokens)) {
         while (match(state, TokenType.SEMI_COLON, true)) {
         }
         statements.add(statement(state))
         while (match(state, TokenType.SEMI_COLON, true)) {
         }
     }
-    return statements
+    return BlockNode(statements, firstToken, state.last())
 }
 
 
 private fun statement(state: ParserState): StatementNode {
     if (match(state, TokenType.VAR)) return variableDeclaration(state)
-    if (match(state, TokenType.RETURN)) return returnStatement(state)
-    if (match(state, TokenType.IF)) return ifStatement(state)
-    if (match(state, TokenType.FOR)) return forStatement(state)
-    if (match(state, TokenType.WHILE)) return whileStatement(state)
-    if (match(state, TokenType.DO)) return doStatement(state)
-    if (match(state, TokenType.BREAK, true)) return BreakNode(state.last(), state.last())
-    if (match(state, TokenType.CONTINUE, true)) return ContinueNode(state.last(), state.last())
+    else if (match(state, TokenType.RETURN)) return returnStatement(state)
+    else if (match(state, TokenType.IF)) return ifStatement(state)
+    else if (match(state, TokenType.DO)) return doStatement(state)
+    else if (match(state, TokenType.WHILE)) return whileStatement(state)
+    else if (match(state, TokenType.FOR)) return forStatement(state)
+    else if (match(state, TokenType.BREAK, true)) return BreakNode(state.last(), state.last())
+    else if (match(state, TokenType.CONTINUE, true)) return ContinueNode(state.last(), state.last())
     else return expression(state)
 }
 
@@ -216,14 +217,7 @@ private fun doStatement(state: ParserState): DoNode {
     val firstToken = state.current()
     if (!match(state, TokenType.DO, true)) error("Expected do")
 
-    val body = mutableListOf<StatementNode>()
-    while (!match(state, TokenType.WHILE)) {
-        while (match(state, TokenType.SEMI_COLON, true)) {
-        }
-        body.add(statement(state))
-        while (match(state, TokenType.SEMI_COLON, true)) {
-        }
-    }
+    val body = block(state, listOf(TokenType.WHILE))
     if (!match(state, TokenType.WHILE, true)) error("Expected while")
     val condition = expression(state)
     if (!match(state, TokenType.END, true)) error("Expected end")
@@ -237,14 +231,7 @@ private fun whileStatement(state: ParserState): WhileNode {
     val condition = expression(state)
     if (!match(state, TokenType.DO, true)) error("Expected do")
 
-    val body = mutableListOf<StatementNode>()
-    while (!match(state, TokenType.END)) {
-        while (match(state, TokenType.SEMI_COLON, true)) {
-        }
-        body.add(statement(state))
-        while (match(state, TokenType.SEMI_COLON, true)) {
-        }
-    }
+    val body = block(state)
     if (!match(state, TokenType.END, true)) error("Expected end")
     return WhileNode(condition, body, firstToken, state.last())
 }
@@ -268,14 +255,7 @@ private fun forStatement(state: ParserState): ForNode {
         if (!match(state, TokenType.COMMA, true)) break
     }
     if (!match(state, TokenType.DO, true)) error(state, "Expected do")
-    val body = mutableListOf<StatementNode>()
-    while (!match(state, TokenType.END) and !match(state, TokenType.ELSE)) {
-        while (match(state, TokenType.SEMI_COLON, true)) {
-        }
-        body.add(statement(state))
-        while (match(state, TokenType.SEMI_COLON, true)) {
-        }
-    }
+    val body = block(state)
     if (!match(state, TokenType.END, true)) error(state, "Expected end")
 
     return ForNode(initializer, condition, increment, body, firstToken, state.last())
@@ -341,7 +321,7 @@ private fun ifStatement(state: ParserState): IfNode {
             while (match(state, TokenType.SEMI_COLON, true)) {
             }
         }
-        elseIfs.add(IfNode(elseifCondition, elseIfBody, emptyList<IfNode>(), emptyList<StatementNode>(), firstToken, state.last()))
+        elseIfs.add(IfNode(elseifCondition, BlockNode(elseIfBody, firstToken, state.last()), emptyList<IfNode>(), BlockNode(emptyList(), firstToken, state.last()), firstToken, state.last()))
     }
     if (match(state, TokenType.ELSE, true)) {
         while (match(state, TokenType.SEMI_COLON, true)) {
@@ -351,7 +331,7 @@ private fun ifStatement(state: ParserState): IfNode {
         }
     }
     if (!match(state, TokenType.END, true)) error("Expected end")
-    return IfNode(condition, trueBody, elseIfs, falseBody, firstToken, state.last())
+    return IfNode(condition, BlockNode(trueBody, firstToken, state.last()), elseIfs, BlockNode(falseBody, firstToken, state.last()), firstToken, state.last())
 }
 
 private val binaryOpGroups = listOf(

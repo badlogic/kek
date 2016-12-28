@@ -227,6 +227,12 @@ private fun resolveAllTypes(state: CompilerState) {
         val variableLookup = VariableLookup()
 
         traverseAstDepthFirst(cu, object : AstVisitorAdapter() {
+            override fun pushScope(n: AstNode) {
+            }
+
+            override fun popScope(n: AstNode) {
+            }
+
             override fun function(n: FunctionNode) {
             }
 
