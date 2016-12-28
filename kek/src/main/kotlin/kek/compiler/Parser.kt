@@ -308,7 +308,7 @@ private fun variableDeclaration(state: ParserState, expectVar: Boolean = true): 
 }
 
 private fun ifStatement(state: ParserState): IfNode {
-    val firstToken = state.current()
+    var firstToken = state.current()
     if (!match(state, TokenType.IF, true)) error("Expected if")
     val condition = expression(state)
     if (!match(state, TokenType.THEN, true)) error("Expected then")
@@ -323,7 +323,7 @@ private fun ifStatement(state: ParserState): IfNode {
         }
     }
     while (match(state, TokenType.ELSEIF, true)) {
-        var firstToken = state.last()
+        firstToken = state.last()
         val elseifCondition = expression(state)
         if (!match(state, TokenType.THEN, true)) error("Expected then")
         val elseIfBody = mutableListOf<StatementNode>()

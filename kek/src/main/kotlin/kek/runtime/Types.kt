@@ -1,48 +1,34 @@
 package kek.runtime
 
-interface TypeInfo
+data class Source(val location: String, val sourceCode: CharSequence)
 
-interface ReferenceType
+data class Location(val source: Source, val line: Int, val column: Int)
 
-class PrimitiveType(val name: String) : TypeInfo
+interface TypeInfo {
+}
 
-class ArrayType(val elementType: TypeInfo = UnknownPrimitiveType) : TypeInfo, ReferenceType
+data class PrimitiveType(val name: String) : TypeInfo
 
-class OptionalType(val elementType: TypeInfo = UnknownPrimitiveType) : TypeInfo
+data class ArrayType(val elementType: TypeInfo) : TypeInfo
 
-class NamedType(val name: String, type: TypeInfo = UnknownPrimitiveType) : TypeInfo
+data class OptionalType(val elementType: TypeInfo) : TypeInfo
 
-class FunctionType(val parameters: List<TypeInfo> = mutableListOf<NamedType>(), var returnType: TypeInfo = UnknownPrimitiveType) : TypeInfo, ReferenceType
+data class NamedType(val name: String, val type: TypeInfo) : TypeInfo
 
-class StructureType(val fields: List<NamedType> = mutableListOf<NamedType>()) : TypeInfo, ReferenceType
+data class StructureType(val location: Location, val module: String, val name: String,
+                         val fields: MutableList<NamedType> = mutableListOf<NamedType>()) : TypeInfo
+
+data class FunctionType(val location: Location, val module: String, val name: String, val extern: Boolean,
+                        val parameters: MutableList<NamedType> = mutableListOf<NamedType>(), var returnType: TypeInfo = UnknownType) : TypeInfo
 
 val IntType = PrimitiveType("int")
 val Int8Type = PrimitiveType("int8")
 val Int16Type = PrimitiveType("int16")
 val Int32Type = PrimitiveType("int32")
 val Int64Type = PrimitiveType("int64")
-
 val FloatType = PrimitiveType("float")
 val DoubleType = PrimitiveType("double")
-
 val BooleanType = PrimitiveType("boolean")
-
 val VoidType = PrimitiveType("void")
 
-val UnknownPrimitiveType = PrimitiveType("Unknown")
-val UnknownStructureType = StructureType()
-val UnknownFunctionType = FunctionType()
-
-class GlobalTypes(val primitiveTypes: MutableMap<String, PrimitiveType> = mutableMapOf(
-                        Pair(IntType.name, IntType),
-                        Pair(Int8Type.name, Int8Type),
-                        Pair(Int16Type.name, Int16Type),
-                        Pair(Int32Type.name, Int32Type),
-                        Pair(Int64Type.name, Int64Type),
-                        Pair(FloatType.name, FloatType),
-                        Pair(DoubleType.name, DoubleType),
-                        Pair(BooleanType.name, BooleanType),
-                        Pair(VoidType.name, VoidType)),
-                  val arrayTypes: MutableMap<String, ArrayType> = mutableMapOf(),
-                  val optionalTypes: MutableMap<String, OptionalType> = mutableMapOf()) {
-}
+val UnknownType = PrimitiveType("Unknown")

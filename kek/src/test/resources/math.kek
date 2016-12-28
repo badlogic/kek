@@ -1,6 +1,6 @@
 module math
 
 extern function sqrt(value: float): float
-extern function sqrt(value: double): float
+extern function sqrt(value: double): double
 extern function cos(value: float): float
 extern function sin(value: float): float

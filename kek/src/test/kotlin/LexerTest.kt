@@ -37,7 +37,7 @@ class LexerTest {
     @Test
     fun testUnknownToken() {
         try {
-            var tokens = tokenize(Source("", "// this is a test\n /* this is \n another test */  §"))
+            tokenize(Source("", "// this is a test\n /* this is \n another test */  §"))
             assertTrue(false)
         } catch (e: CompilerException) {
             // expected
@@ -89,21 +89,21 @@ class LexerTest {
         assertEquals(TokenType.EOF, tokens[1].type)
 
         try {
-            val tokens = tokenize(Source("", """ "this is a """));
+            tokenize(Source("", """ "this is a """));
             assertTrue(false)
         } catch(e: CompilerException) {
             // expected
         }
 
         try {
-            val tokens = tokenize(Source("", """ "\" """))
+            tokenize(Source("", """ "\" """))
             assertTrue(false)
         } catch(e: CompilerException) {
             // expected
         }
 
         try {
-            val tokens = tokenize(Source("", """ "\z" """))
+            tokenize(Source("", """ "\z" """))
             assertTrue(false)
         } catch(e: CompilerException) {
             // expected
@@ -127,21 +127,21 @@ class LexerTest {
         assertEquals(TokenType.EOF, tokens[5].type)
 
         try {
-            val tokens = tokenize(Source("", " 'a"));
+            tokenize(Source("", " 'a"));
             assertTrue(false)
         } catch(e: CompilerException) {
             // expected
         }
 
         try {
-            val tokens = tokenize(Source("", """ '\' """"))
+            tokenize(Source("", """ '\' """"))
             assertTrue(false)
         } catch(e: CompilerException) {
             // expected
         }
 
         try {
-            val tokens = tokenize(Source("", """ '\z' """))
+            tokenize(Source("", """ '\z' """))
             assertTrue(false)
         } catch(e: CompilerException) {
             // expected

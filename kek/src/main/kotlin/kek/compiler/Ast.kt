@@ -5,10 +5,12 @@ import kek.runtime.*
 abstract class AstNode(val firstToken: Token, val lastToken: Token) {
     val annotations = mutableMapOf<Class<Any>, Any>()
 
+    @Suppress("UNCHECKED_CAST")
     fun <T> getAnnotation(cls: Class<T>): T {
         return annotations[cls as Class<Any>] as T
     }
 
+    @Suppress("UNCHECKED_CAST")
     fun <T> setAnnotation(annotation: T, cls: Class<T>) {
         annotations[cls as Class<Any>] = annotation as Any
     }
@@ -346,8 +348,8 @@ fun printAstNode(p: String, n: AstNode, nodes: StringBuffer, edges: StringBuffer
     else if (n is WhileNode) return printWhileStatement(p, n, nodes, edges)
     else if (n is DoNode) return printDoStatement(p, n, nodes, edges)
     else if (n is ReturnNode) return printReturnStatement(p, n, nodes, edges)
-    else if (n is BreakNode) return printBreakStatement(p, n, nodes, edges)
-    else if (n is ContinueNode) return printContinueStatement(p, n, nodes, edges)
+    else if (n is BreakNode) return printBreakStatement(p, nodes, edges)
+    else if (n is ContinueNode) return printContinueStatement(p, nodes, edges)
     else if (n is TernaryOperatorNode) return printTernaryOperator(p, n, nodes, edges)
     else if (n is EmptyExpressionNode) return "empty"
     else if (n is ParenthesisNode) return printParanthesis(p, n, nodes, edges)
@@ -370,14 +372,14 @@ fun printParanthesis(p: String, n: ParenthesisNode, nodes: StringBuffer, edges: 
     return name
 }
 
-fun printContinueStatement(p: String, n: ContinueNode, nodes: StringBuffer, edges: StringBuffer): String {
+fun printContinueStatement(p: String, nodes: StringBuffer, edges: StringBuffer): String {
     val name = "b${i++}"
     nodes.append("$name [label=\"Continue\"]\n")
     edges.append("$p->$name\n")
     return name
 }
 
-fun printBreakStatement(p: String, n: BreakNode, nodes: StringBuffer, edges: StringBuffer): String {
+fun printBreakStatement(p: String, nodes: StringBuffer, edges: StringBuffer): String {
     val name = "b${i++}"
     nodes.append("$name [label=\"Break\"]\n")
     edges.append("$p->$name\n")

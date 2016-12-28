@@ -14,6 +14,7 @@ class CompilerTest {
 
         for (m in compilerState.modules.values) {
             print(printModule(m))
+            println()
         }
     }
 }

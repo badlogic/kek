@@ -309,8 +309,6 @@ private fun skipComments(state: LexerState) {
     if (isEOF(state)) return
 
     with(state) {
-        var c = input.sourceCode[index]
-
         if (tryMatch(state, "//")) {
             while (true) {
                 if (isEOF(state)) return

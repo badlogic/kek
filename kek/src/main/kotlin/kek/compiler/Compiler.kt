@@ -2,37 +2,29 @@ package kek.compiler
 
 import kek.runtime.*
 
-class SymbolTable {
-    private val tables = mutableListOf<MutableMap<String, TypeInfo>>()
-
-    constructor() {
-        push()
-    }
-
-    fun push() {
-        tables.add(mutableMapOf<String, TypeInfo>())
-    }
-
-    fun pop() {
-        tables.removeAt(tables.lastIndex)
-    }
-
-    fun add(name: String, type: TypeInfo) {
-        tables.last()[name] = type
-    }
-
-    fun contains(name: String): Boolean {
-        for (i in (tables.size - 1) downTo 0) {
-            return tables[i].containsKey(name)
+class ModuleTypeLookup (val modules: List<Module>) {
+    fun lookup(name: String): List<TypeInfo> {
+        val result = mutableListOf<TypeInfo>()
+        for (m in modules) {
+            result.addAll(m.lookup(name))
         }
-        return false
+        return result
     }
 
-    fun get(name: String): TypeInfo? {
-        for (i in (tables.size - 1) downTo 0) {
-            if (tables[i].containsKey(name)) return tables[i].get(name)
+    fun lookupFunction(name: String): List<FunctionType> {
+        val result = mutableListOf<FunctionType>()
+        for (m in modules) {
+            result.addAll(m.lookupFunction(name))
         }
-        return null
+        return result
+    }
+
+    fun lookupPrimitiveOrStructure(name: String): List<TypeInfo> {
+        val result = mutableListOf<TypeInfo>()
+        for (m in modules) {
+            result.addAll(m.lookupPrimitiveOrStructure(name))
+        }
+        return result
     }
 }
 
@@ -53,11 +45,22 @@ class CompilerException(val source: Source,
 }
 
 data class CompilerState(val compilationUnits: MutableList<CompilationUnitNode> = mutableListOf<CompilationUnitNode>(),
-                         val modules: MutableMap<String, Module> = mutableMapOf<String, Module>(),
-                         val globalTypes: GlobalTypes = GlobalTypes())
+                         val modules: MutableMap<String, Module> = mutableMapOf<String, Module>()) {
+}
 
 fun compile(sources: List<Source>): CompilerState {
     val state = CompilerState()
+    val defaultModule = Module("")
+    defaultModule.primitiveTypes.put(IntType.name, IntType)
+    defaultModule.primitiveTypes.put(Int8Type.name, Int8Type)
+    defaultModule.primitiveTypes.put(Int16Type.name, Int16Type)
+    defaultModule.primitiveTypes.put(Int32Type.name, Int32Type)
+    defaultModule.primitiveTypes.put(Int64Type.name, Int64Type)
+    defaultModule.primitiveTypes.put(FloatType.name, FloatType)
+    defaultModule.primitiveTypes.put(DoubleType.name, DoubleType)
+    defaultModule.primitiveTypes.put(BooleanType.name, BooleanType)
+    defaultModule.primitiveTypes.put(VoidType.name, VoidType)
+    state.modules.put("", defaultModule)
 
     for (source in sources) {
         state.compilationUnits.add(parse(source))
@@ -96,39 +99,80 @@ private fun gatherModules(state: CompilerState) {
                 throw CompilerException(cu.source, "Structure ${module.name}.${s.name.text} already defined in ${otherStruct.location.source.location}:(${otherStruct.location.line}, ${otherStruct.location.column})", s.name.line, s.name.column, s.name.column + s.name.text.length)
             }
 
-            val struct = Structure(Location(cu.source, s.name.line, s.name.column), module.name, s.name.text, UnknownStructureType)
-            s.setAnnotation(struct, Structure::class.java)
+            val struct = StructureType(Location(cu.source, s.name.line, s.name.column), module.name, s.name.text)
+            s.setAnnotation(struct, StructureType::class.java)
             module.structures[struct.name] = struct
         }
 
         for (f in cu.functions) {
-            val func = Function(Location(cu.source, f.name.line, f.name.column), module.name, f.name.text, f.extern, UnknownFunctionType)
+            val func = FunctionType(Location(cu.source, f.name.line, f.name.column), module.name, f.name.text, f.extern)
             var funcs = module.functions[func.name]
             if (funcs == null) {
                 funcs = mutableListOf()
                 module.functions[func.name] = funcs
             }
-            f.setAnnotation(func, kek.runtime.Function::class.java)
-            funcs!!.add(func)
+            f.setAnnotation(func, kek.runtime.FunctionType::class.java)
+            funcs.add(func)
         }
     }
 }
 
 /**
- * Resolves the top level structure and function types and their
- * fields and parameters. Does not resolve types referenced in
- * function bodies.
+ * Resolves the types referenced by structures and functions.
+ * Does not resolve types referenced in function bodies.
  */
 private fun resolveTopLevelTypes(state: CompilerState) {
     for (cu in state.compilationUnits) {
+        val importedModules = mutableListOf<Module>()
+        importedModules.add(state.modules[""]!!)
+        importedModules.add(cu.getAnnotation(Module::class.java))
+        for (i in cu.imports) {
+            if (!state.modules.containsKey(i.importName)) throw CompilerException(cu.source, "Could not find imported module '${i.importName}'", i.firstToken.line, i.firstToken.column, i.firstToken.column + i.importName.length)
+            importedModules.add(state.modules[i.importName]!!)
+        }
+        val lookup = ModuleTypeLookup(importedModules)
+
         traverseAstDepthFirst(cu, object: AstVisitorAdapter() {
             override fun structure(n: StructureNode) {
-                print(n.name)
+                val structure = n.getAnnotation(StructureType::class.java)
+
+                // resolve types of fields
+                for (field in n.fields) {
+                    // fields must have a type given, infering the type from the initializer is to hard at the moment
+                    if (field.type is NoTypeNode) {
+                        throw CompilerException(cu.source, "No type given for field '${field.name.text}'", field.name.line, field.name.column, field.name.column + field.name.text.length)
+                    } else {
+                        structure.fields.add(NamedType(field.name.text, typeNodeToType(lookup, cu.source, "field '${field.name.text}'", field.firstToken, field.type)))
+                    }
+                }
             }
 
             override fun function(n: FunctionNode) {
-                print(n.name)
+                val function = n.getAnnotation(FunctionType::class.java)
+
+                // resolve types of parameters
+                for (parameter in n.parameters) {
+                    function.parameters.add(NamedType(parameter.name.text, typeNodeToType(lookup, cu.source, "parameter '${parameter.name.text}'", parameter.firstToken, parameter.type)))
+                }
+
+                // resolve type of return value
+                if (n.returnType is NoTypeNode) function.returnType = VoidType
+                else function.returnType = typeNodeToType(lookup, cu.source, "return value", n.name, n.returnType)
             }
         }, setOf<Class<out AstNode>>(CompilationUnitNode::class.java, StructureNode::class.java, FunctionNode::class.java));
+    }
+}
+
+private fun typeNodeToType(lookup: ModuleTypeLookup, source: Source, typeOfWhat: String, token: Token, node: TypeNode): TypeInfo {
+    val candidateTypes = lookup.lookupPrimitiveOrStructure(node.fullyQualfiedName())
+    if (candidateTypes.size == 1) {
+        var type = candidateTypes[0]
+        if (node.isArray)  type = ArrayType(type)
+        if (node.isOptional) type = OptionalType(type)
+        return type
+    } else if (candidateTypes.size > 1){
+        throw CompilerException(source, "Multiple types matching type of ${typeOfWhat}", token.line, token.column, token.column + token.text.length)
+    } else {
+        throw CompilerException(source, "Could not find type '${node.fullyQualfiedName()}' of ${typeOfWhat}", node.firstToken.line, node.firstToken.column, node.lastToken.column + node.lastToken.text.length)
     }
 }
