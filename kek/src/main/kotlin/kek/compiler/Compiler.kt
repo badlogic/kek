@@ -1,6 +1,7 @@
 package kek.compiler
 
 import kek.runtime.*
+import javax.lang.model.type.NoType
 
 class ModuleTypeLookup(val modules: List<Module>) {
     fun lookup(name: String): List<TypeInfo> {
@@ -58,17 +59,17 @@ class VariableLookup {
     fun lookup(name: String): Variable? {
         for (i in variablesStack.lastIndex downTo 0) {
             val variables = variablesStack[i]
-            if (variables.containsKey(name)) return variables[name]!!
+            if (variables.containsKey(name))
+                return variables[name]!!
         }
         return null
     }
 }
 
-class CompilerException(val source: Source,
-                        val msg: String,
-                        val line: Int,
-                        val columnStart: Int,
-                        val columnEnd: Int) : RuntimeException(msg) {
+class CompilerException(val source: Source, val msg: String, val line: Int, val columnStart: Int, val columnEnd: Int) : RuntimeException(msg) {
+
+    constructor(source: Source, msg: String, token: Token) : this(source, msg, token.line, token.column, token.column + token.text.length){
+    }
 
     override fun toString(): String {
         val lines = source.sourceCode.split('\n');
@@ -133,7 +134,7 @@ private fun gatherModules(state: CompilerState) {
         for (s in cu.structs) {
             if (module.structures.containsKey(s.name.text)) {
                 val otherStruct = module.structures[s.name.text]!!
-                throw CompilerException(cu.source, "Structure ${module.name}.${s.name.text} already defined in ${otherStruct.location.source.location}:(${otherStruct.location.line}, ${otherStruct.location.column})", s.name.line, s.name.column, s.name.column + s.name.text.length)
+                throw CompilerException(cu.source, "Structure ${module.name}.${s.name.text} already defined in ${otherStruct.location.source.location}:(${otherStruct.location.line}, ${otherStruct.location.column})", s.name)
             }
 
             val struct = StructureType(Location(cu.source, s.name.line, s.name.column), module.name, s.name.text)
@@ -177,7 +178,7 @@ private fun resolveTopLevelTypes(state: CompilerState) {
                 for (field in n.fields) {
                     // fields must have a type given, infering the type from the initializer is to hard at the moment
                     if (field.type is NoTypeNode) {
-                        throw CompilerException(cu.source, "No type given for field '${field.name.text}'", field.name.line, field.name.column, field.name.column + field.name.text.length)
+                        throw CompilerException(cu.source, "No type given for field '${field.name.text}'", field.name)
                     } else {
                         structure.fields.add(NamedType(field.name.text, typeNodeToType(lookup, cu.source, "field '${field.name.text}'", field.firstToken, field.type)))
                     }
@@ -189,7 +190,9 @@ private fun resolveTopLevelTypes(state: CompilerState) {
 
                 // resolve types of parameters
                 for (parameter in n.parameters) {
-                    function.parameters.add(NamedType(parameter.name.text, typeNodeToType(lookup, cu.source, "parameter '${parameter.name.text}'", parameter.firstToken, parameter.type)))
+                    val type = NamedType(parameter.name.text, typeNodeToType(lookup, cu.source, "parameter '${parameter.name.text}'", parameter.firstToken, parameter.type))
+                    function.parameters.add(type)
+                    parameter.setAnnotation(type, NamedType::class.java)
                 }
 
                 // resolve type of return value
@@ -208,9 +211,9 @@ private fun typeNodeToType(lookup: ModuleTypeLookup, source: Source, typeOfWhat:
         if (node.isOptional) type = OptionalType(type)
         return type
     } else if (candidateTypes.size > 1) {
-        throw CompilerException(source, "Multiple types matching type of ${typeOfWhat}", token.line, token.column, token.column + token.text.length)
+        throw CompilerException(source, "Multiple types matching type of ${typeOfWhat}", token)
     } else {
-        throw CompilerException(source, "Could not find type '${node.fullyQualfiedName()}' of ${typeOfWhat}", node.firstToken.line, node.firstToken.column, node.lastToken.column + node.lastToken.text.length)
+        throw CompilerException(source, "Could not find type '${node.fullyQualfiedName()}' of ${typeOfWhat}", token)
     }
 }
 
@@ -227,98 +230,149 @@ private fun resolveAllTypes(state: CompilerState) {
         val variableLookup = VariableLookup()
 
         traverseAstDepthFirst(cu, object : AstVisitorAdapter() {
+
             override fun pushScope(n: AstNode) {
+                variableLookup.pushScope()
+                when(n) {
+                    is FunctionNode -> {
+                        for (p in n.parameters) {
+                            val pt = p.getAnnotation(NamedType::class.java)
+                            variableLookup.add(Variable(p.name, pt.name, VariableType.Parameter, pt))
+                        }
+                    }
+                }
             }
 
             override fun popScope(n: AstNode) {
-            }
-
-            override fun function(n: FunctionNode) {
+                variableLookup.popScope()
             }
 
             override fun variableDeclaration(n: VariableDeclarationNode) {
+                var variable = variableLookup.lookup(n.name.text);
+                if (variable != null) throw CompilerException(cu.source, "Variable '${n.name.text}' already defined at (${variable.location.line}:${variable.location.column})", n.name)
+                val type: TypeInfo
+                if (n.type is NoTypeNode) {
+                    if (n.initializer == null) throw CompilerException(cu.source, "Variable '${n.name.text}' needs a type or initializer", n.name)
+                    type = n.initializer.getAnnotation(TypeInfo::class.java)
+                } else {
+                    type = typeNodeToType(typeLookup, cu.source, "variable '${n.name.text}'", n.name, n.type)
+                    if (n.initializer != null) {
+                        val initializerType = n.initializer.getAnnotation(TypeInfo::class.java)
+                        if (!typesEqual(type, initializerType)) throw CompilerException(cu.source, "The variable '${n.name.text} of type ${typeToString(type)}", n.name)
+                    }
+                }
+                variableLookup.add(Variable(n.name, n.name.text, VariableType.Local, type))
             }
 
             override fun returnStatement(n: ReturnNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun ifStatement(n: IfNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun forStatement(n: ForNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun whileStatement(n: WhileNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun doStatement(n: DoNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun breakStatement(n: BreakNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun continueStatement(n: ContinueNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun unaryOperator(n: UnaryOperatorNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun binaryOperator(n: BinaryOperatorNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun ternaryOperator(n: TernaryOperatorNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun charLiteral(n: CharacterLiteralNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun stringLiteral(n: StringLiteralNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun numberLiteral(n: NumberLiteralNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun booleanLiteral(n: BooleanLiteralNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun nullLiteral(n: NullLiteralNode) {
-                super.nullLiteral(n)
+                // FIXME
             }
 
             override fun variableAccess(n: VariableAccessNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun arrayAccess(n: ArrayAccessNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun fieldAccess(n: FieldAccessNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun functionCall(n: FunctionCallNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
 
             override fun parenthesis(n: ParenthesisNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+                // FIXME
             }
-
         });
     }
+}
+
+fun typeToString(t: TypeInfo): String {
+    when(t) {
+        is NamedType -> return typeToString(t.type)
+        is PrimitiveType -> return t.name
+        is StructureType -> return if (t.module.isEmpty()) t.name else t.module + "." + t.name
+        is FunctionType -> {
+            val buffer = StringBuffer()
+            if (!t.module.isEmpty()) {
+                buffer.append(t.module)
+                buffer.append(".")
+            }
+            buffer.append(t.name)
+            buffer.append("(")
+            for (i in t.parameters.indices) {
+                buffer.append(typeToString(t.parameters[i].type))
+                if (i != t.parameters.lastIndex) buffer.append(", ")
+            }
+            buffer.append(")")
+            return buffer.toString()
+        }
+        is ArrayType -> return typeToString(t.elementType) + "[]"
+        is OptionalType -> return typeToString(t.elementType) + "?"
+        else -> throw RuntimeException("Unknown TypeInfo subtype ${t}")
+    }
+}
+
+fun typesEqual(a: TypeInfo, b: TypeInfo): Boolean {
+    return true
 }

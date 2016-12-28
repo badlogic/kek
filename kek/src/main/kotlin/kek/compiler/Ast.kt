@@ -49,9 +49,9 @@ class BlockNode(val statements: List<StatementNode>, firstToken: Token, lastToke
 
 abstract class StatementNode(firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken)
 
-class VariableDeclarationNode(val name: Token, val type: TypeNode, val initializer: ExpressionNode, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
+class VariableDeclarationNode(val name: Token, val type: TypeNode, val initializer: ExpressionNode?, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
-class ReturnNode(val expression: ExpressionNode, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
+class ReturnNode(val expression: ExpressionNode?, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
 class IfNode(val condition: ExpressionNode, val trueBody: BlockNode, val elseIfs: List<IfNode>, val falseBody: BlockNode, firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
@@ -66,8 +66,6 @@ class BreakNode(firstToken: Token, lastToken: Token) : StatementNode(firstToken,
 class ContinueNode(firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
 
 abstract class ExpressionNode(firstToken: Token, lastToken: Token) : StatementNode(firstToken, lastToken)
-
-class EmptyExpressionNode(firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
 class UnaryOperatorNode(val opType: Token, val expr: ExpressionNode, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
@@ -388,7 +386,6 @@ fun printAstNode(p: String, n: AstNode, nodes: StringBuffer, edges: StringBuffer
         is BreakNode -> return printBreakStatement(p, nodes, edges)
         is ContinueNode -> return printContinueStatement(p, nodes, edges)
         is TernaryOperatorNode -> return printTernaryOperator(p, n, nodes, edges)
-        is EmptyExpressionNode -> return "empty"
         is ParenthesisNode -> return printParanthesis(p, n, nodes, edges)
         is ImportNode -> return printImport(p, n, nodes, edges)
         else -> throw RuntimeException("Unknown AST node $n")
@@ -461,7 +458,7 @@ fun printReturnStatement(p: String, n: ReturnNode, nodes: StringBuffer, edges: S
     val name = "b${i++}"
     nodes.append("$name [label=\"Return\"]\n")
     edges.append("$p->$name\n")
-    printAstNode(name, n.expression, nodes, edges)
+    if (n.expression != null) printAstNode(name, n.expression, nodes, edges)
     return name
 }
 
@@ -498,7 +495,7 @@ fun printVariableDeclaration(p: String, n: VariableDeclarationNode, nodes: Strin
     val name = "b${i++}"
     nodes.append("$name [label=\"Variable ${n.name.text}, ${n.type.fullyQualfiedName()}, optional: ${n.type.isOptional}, array: ${n.type.isArray}\"]\n")
     edges.append("$p->$name\n")
-    printAstNode(name, n.initializer, nodes, edges)
+    if (n.initializer != null) printAstNode(name, n.initializer, nodes, edges)
     return name
 }
 

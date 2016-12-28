@@ -10,7 +10,7 @@ data class Module(val name: String,
 
     fun lookup(name: String): List<TypeInfo> {
         val moduleName = moduleNameFromFQName(name)
-        if (!moduleName.isEmpty() and !moduleName.equals(name)) return emptyList()
+        if (!moduleName.isEmpty() and !moduleName.equals(this.name)) return emptyList()
 
         val result = mutableListOf<TypeInfo>()
         if (primitiveTypes.containsKey(name)) result.add(primitiveTypes[name]!!)
@@ -22,7 +22,7 @@ data class Module(val name: String,
     fun lookupFunction(name: String): List<FunctionType> {
         val moduleName = moduleNameFromFQName(name)
         val strippedName = stripModuleName(name)
-        if (!moduleName.isEmpty() and !moduleName.equals(name)) return emptyList()
+        if (!moduleName.isEmpty() and !moduleName.equals(this.name)) return emptyList()
 
         val result = this.functions[strippedName]
         if (result == null) return emptyList()
@@ -32,7 +32,7 @@ data class Module(val name: String,
     fun lookupPrimitiveOrStructure(name: String): List<TypeInfo> {
         val moduleName = moduleNameFromFQName(name)
         val strippedName = stripModuleName(name)
-        if (!moduleName.isEmpty() and !moduleName.equals(name)) return emptyList()
+        if (!moduleName.isEmpty() and !moduleName.equals(this.name)) return emptyList()
 
         val result = mutableListOf<TypeInfo>()
         val primitive = this.primitiveTypes[strippedName]

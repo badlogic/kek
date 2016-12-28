@@ -1,4 +1,4 @@
-module test
+module simple
 
 import math
 
@@ -19,8 +19,9 @@ structure Mesh
 end
 
 
-function distance(p1: Point, p2: Point): float
+function distance(p1: simple.Point, p2: Point): float
     var distance = (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y)
+    var distance = 1
     return sqrt(distance)
 end
 

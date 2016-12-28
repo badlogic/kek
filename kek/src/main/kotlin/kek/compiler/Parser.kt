@@ -271,7 +271,7 @@ private fun returnStatement(state: ParserState): ReturnNode {
     val firstToken = state.current()
     if (!match(state, TokenType.RETURN, true)) error("Expected return")
     if (match(state, expressionStartTokens)) return ReturnNode(expression(state), firstToken, state.last())
-    else return ReturnNode(EmptyExpressionNode(firstToken, state.last()), firstToken, state.last())
+    else return ReturnNode(null, firstToken, state.last())
 }
 
 private fun variableDeclaration(state: ParserState, expectVar: Boolean = true): VariableDeclarationNode {
@@ -286,7 +286,7 @@ private fun variableDeclaration(state: ParserState, expectVar: Boolean = true): 
         type = type(state)
     }
 
-    var initializer: ExpressionNode = EmptyExpressionNode(firstToken, state.last())
+    var initializer: ExpressionNode? = null
     if (match(state, TokenType.EQUAL, true)) {
         initializer = expression(state)
     }
@@ -460,5 +460,5 @@ private fun factor(state: ParserState): ExpressionNode {
     }
 
     error(state, "Expected a boolean, number, character, string, variable name or function call")
-    return EmptyExpressionNode(firstToken, state.last())
+    throw RuntimeException("Unreachable")
 }
