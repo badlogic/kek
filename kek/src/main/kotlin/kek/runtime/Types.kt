@@ -7,32 +7,36 @@ data class Location(val source: Source, val line: Int, val column: Int)
 interface TypeInfo {
 }
 
-data class PrimitiveType(val name: String) : TypeInfo
+data class PrimitiveType(val name: String, val isNumeric: Boolean) : TypeInfo
 
 data class ArrayType(val elementType: TypeInfo) : TypeInfo
 
 data class OptionalType(val elementType: TypeInfo) : TypeInfo
 
-data class NamedType(val name: String, val type: TypeInfo) : TypeInfo
+data class NamedType(val name: String, val type: TypeInfo)
 
 data class StructureType(val location: Location, val module: String, val name: String,
                          val fields: MutableList<NamedType> = mutableListOf<NamedType>()) : TypeInfo {
     override fun toString(): String {
         return "StructureType(module=${module}, name=${name})"
     }
+
+    fun fullyQualifiedName(): String {
+        return if (module.isEmpty()) name else "${module}.${name}"
+    }
 }
 
 data class FunctionType(val location: Location, val module: String, val name: String, val extern: Boolean,
                         val parameters: MutableList<NamedType> = mutableListOf<NamedType>(), var returnType: TypeInfo = UnknownType) : TypeInfo
 
-val IntType = PrimitiveType("int")
-val Int8Type = PrimitiveType("int8")
-val Int16Type = PrimitiveType("int16")
-val Int32Type = PrimitiveType("int32")
-val Int64Type = PrimitiveType("int64")
-val FloatType = PrimitiveType("float")
-val DoubleType = PrimitiveType("double")
-val BooleanType = PrimitiveType("boolean")
-val VoidType = PrimitiveType("void")
+val Int8Type = PrimitiveType("int8", true)
+val Int16Type = PrimitiveType("int16", true)
+val Int32Type = PrimitiveType("int32", true)
+val Int64Type = PrimitiveType("int64", true)
+val FloatType = PrimitiveType("float", true)
+val DoubleType = PrimitiveType("double", true)
+val BooleanType = PrimitiveType("boolean", false)
+val VoidType = PrimitiveType("void", false)
+val NullType = PrimitiveType("null", false)
 
-val UnknownType = PrimitiveType("Unknown")
+val UnknownType = PrimitiveType("Unknown", false)

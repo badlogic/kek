@@ -88,9 +88,9 @@ data class CompilerState(val compilationUnits: MutableList<CompilationUnitNode> 
 fun compile(sources: List<Source>): CompilerState {
     val state = CompilerState()
     val defaultModule = Module("")
-    defaultModule.primitiveTypes.put(IntType.name, IntType)
     defaultModule.primitiveTypes.put(Int8Type.name, Int8Type)
     defaultModule.primitiveTypes.put(Int16Type.name, Int16Type)
+    defaultModule.primitiveTypes.put("int", Int32Type)
     defaultModule.primitiveTypes.put(Int32Type.name, Int32Type)
     defaultModule.primitiveTypes.put(Int64Type.name, Int64Type)
     defaultModule.primitiveTypes.put(FloatType.name, FloatType)
@@ -192,7 +192,7 @@ private fun resolveTopLevelTypes(state: CompilerState) {
                 for (parameter in n.parameters) {
                     val type = NamedType(parameter.name.text, typeNodeToType(lookup, cu.source, "parameter '${parameter.name.text}'", parameter.firstToken, parameter.type))
                     function.parameters.add(type)
-                    parameter.setAnnotation(type, NamedType::class.java)
+                    parameter.setAnnotation(type.type, TypeInfo::class.java)
                 }
 
                 // resolve type of return value
@@ -236,8 +236,8 @@ private fun resolveAllTypes(state: CompilerState) {
                 when (n) {
                     is FunctionNode -> {
                         for (p in n.parameters) {
-                            val pt = p.getAnnotation(NamedType::class.java)
-                            variableLookup.add(Variable(p.name, pt.name, VariableType.Parameter, pt))
+                            val pt = p.getAnnotation(TypeInfo::class.java)
+                            variableLookup.add(Variable(p.name, p.name.text, VariableType.Parameter, pt))
                         }
                     }
                 }
@@ -258,7 +258,7 @@ private fun resolveAllTypes(state: CompilerState) {
                     type = typeNodeToType(typeLookup, cu.source, "variable '${n.name.text}'", n.name, n.type)
                     if (n.initializer != null) {
                         val initializerType = n.initializer.getAnnotation(TypeInfo::class.java)
-                        if (!typesEqual(type, initializerType)) throw CompilerException(cu.source, "The variable '${n.name.text} of type ${typeToString(type)}", n.name)
+                        if (!assignable(type, initializerType)) throw CompilerException(cu.source, "The initializer expression of type '${typeToString(initializerType)}' can not be assigned to the variable '${n.name.text}' of type '${typeToString(type)}'", n.name)
                     }
                 }
                 variableLookup.add(Variable(n.name, n.name.text, VariableType.Local, type))
@@ -293,47 +293,127 @@ private fun resolveAllTypes(state: CompilerState) {
             }
 
             override fun unaryOperator(n: UnaryOperatorNode) {
-                // FIXME
+                when (n.opType.type) {
+                    TokenType.PLUS, TokenType.MINUS -> {
+                        val exprType = n.expr.getAnnotation(TypeInfo::class.java)
+                        if (!(exprType is PrimitiveType)) throw CompilerException(cu.source, "Unary '${n.opType.text}' can only be applied to numeric types", n.opType)
+                        if (!exprType.isNumeric) throw CompilerException(cu.source, "Unary operator '${n.opType.text}' requires a numeric type", n.opType)
+                        n.setAnnotation(exprType, TypeInfo::class.java)
+                    }
+                    TokenType.NOT -> {
+                        val exprType = n.expr.getAnnotation(TypeInfo::class.java)
+                        if (!(exprType is PrimitiveType)) throw  CompilerException(cu.source, "Unary operator '${n.opType.text}' requires a numeric or boolean type", n.opType)
+                        if (!exprType.isNumeric or (exprType != BooleanType)) throw CompilerException(cu.source, "Unary operator '${n.opType.text}' requires a numeric or boolean type", n.opType)
+                        n.setAnnotation(exprType, TypeInfo::class.java)
+                    }
+                    else -> throw CompilerException(cu.source, "Unknown unary operator ${n.opType.text}", n.opType)
+                }
             }
 
             override fun binaryOperator(n: BinaryOperatorNode) {
-                // FIXME
+                val leftType = n.left.getAnnotation(TypeInfo::class.java)
+                val rightType = n.right.getAnnotation(TypeInfo::class.java)
+
+                when (n.opType.type) {
+                    TokenType.EQUAL -> {
+                        if ((n.left !is VariableAccessNode) and (n.left !is ArrayAccessNode) and (n.left !is FieldAccessNode)) throw CompilerException(cu.source, "Left-hand side of assignment is not a variable, field or array element", n.left.firstToken);
+                        if ((leftType == NullType) and (rightType !is OptionalType)) throw CompilerException(cu.source, "Can not assign null to non-nullable type", n.left.firstToken)
+                        if (!assignable(leftType, rightType)) throw CompilerException(cu.source, "Can not assign a '${typeToString(rightType)}' to a '${typeToString(leftType)}", n.left.firstToken)
+                        n.setAnnotation(leftType, TypeInfo::class.java)
+                    }
+                    TokenType.PLUS_EQUAL, TokenType.MINUS_EQUAL, TokenType.MUL_EQUAL, TokenType.DIV_EQUAL, TokenType.MOD_EQUAL -> {
+                        if ((n.left !is VariableAccessNode) and (n.left !is ArrayAccessNode) and (n.left !is FieldAccessNode)) throw CompilerException(cu.source, "Left-hand side of assignment is not a variable, field or array element", n.left.firstToken);
+                        if ((leftType !is PrimitiveType) and (rightType !is PrimitiveType)) throw CompilerException(cu.source, "Operator '${n.opType.text}' requires numeric types on the left- and right-hand side", n.opType)
+                        val leftPrimType = leftType as PrimitiveType
+                        val rightPrimType = rightType as PrimitiveType
+
+                        if (!leftPrimType.isNumeric and !rightPrimType.isNumeric) throw CompilerException(cu.source, "Operator '${n.opType.text}' requires numeric types on the left- and right-hand side", n.opType)
+                        if (!assignable(leftType, rightType)) throw CompilerException(cu.source, "Can not '${n.opType.text}' value of type '${typeToString(leftType)}' with a value of type '${typeToString(rightType)}", n.left.firstToken)
+                        n.setAnnotation(leftType, TypeInfo::class.java)
+                    }
+                    TokenType.OR, TokenType.AND, TokenType.XOR -> {
+                        if ((leftType !is PrimitiveType) and (rightType !is PrimitiveType)) throw CompilerException(cu.source, "Operator '${n.opType.text}' requires a numeric type on the left- and right-hand side", n.opType)
+                        val leftPrimType = leftType as PrimitiveType
+                        val rightPrimType = rightType as PrimitiveType
+
+                        if (leftPrimType != BooleanType && leftPrimType != Int8Type && leftPrimType != Int16Type && leftPrimType != Int32Type && leftPrimType != Int64Type) throw CompilerException(cu.source, "Operator '${n.opType.text} requires an integer or boolean type on the left-hand side", n.left.firstToken)
+                        if (rightPrimType != BooleanType && rightPrimType != Int8Type && rightPrimType != Int16Type && rightPrimType != Int32Type && rightPrimType != Int64Type) throw CompilerException(cu.source, "Operator '${n.opType.text} requires an integer or boolean type on the right-hand side", n.left.firstToken)
+                        if (leftPrimType != rightPrimType) throw CompilerException(cu.source, "Can not '${n.opType.text}' value of type '${typeToString(leftType)}' with a value of type '${typeToString(rightType)}", n.left.firstToken)
+                        n.setAnnotation(leftType, TypeInfo::class.java)
+                    }
+                    TokenType.DOUBLE_EQUAL, TokenType.NOT_EQUAL, TokenType.TRIPLE_EQUAL -> {
+                        throw CompilerException(cu.source, "Unknown binary operator ${n.opType.text}", n.opType)
+                    }
+                    TokenType.LESS, TokenType.LESSEQUAL, TokenType.GREATER, TokenType.GREATEREQUAL -> {
+                        throw CompilerException(cu.source, "Unknown binary operator ${n.opType.text}", n.opType)
+                    }
+                    TokenType.SHL, TokenType.SHR -> {
+                        throw CompilerException(cu.source, "Unknown binary operator ${n.opType.text}", n.opType)
+                    }
+                    TokenType.PLUS, TokenType.MINUS -> {
+                        throw CompilerException(cu.source, "Unknown binary operator ${n.opType.text}", n.opType)
+                    }
+                    TokenType.DIV, TokenType.MUL, TokenType.MODULO -> {
+                        throw CompilerException(cu.source, "Unknown binary operator ${n.opType.text}", n.opType)
+                    }
+                    else -> throw CompilerException(cu.source, "Unknown binary operator ${n.opType.text}", n.opType)
+                }
             }
 
             override fun ternaryOperator(n: TernaryOperatorNode) {
-                // FIXME
+                throw UnsupportedOperationException("Type check for ternary operator not implemented")
             }
 
             override fun charLiteral(n: CharacterLiteralNode) {
-                // FIXME
+                throw UnsupportedOperationException("Type check for char literal not implemented")
             }
 
             override fun stringLiteral(n: StringLiteralNode) {
-                // FIXME
+                throw UnsupportedOperationException("Type check for string literal not implemented")
             }
 
             override fun numberLiteral(n: NumberLiteralNode) {
-                // FIXME
+                if (n.literal.text.contains(".") or n.literal.text.contains("d")) {
+                    if (n.literal.text.contains("d"))
+                        n.setAnnotation(DoubleType, TypeInfo::class.java)
+                    else
+                        n.setAnnotation(FloatType, TypeInfo::class.java)
+                } else {
+                    if (n.literal.text.contains("l"))
+                        n.setAnnotation(Int64Type, TypeInfo::class.java)
+                    else
+                        n.setAnnotation(Int32Type, TypeInfo::class.java)
+                }
             }
 
             override fun booleanLiteral(n: BooleanLiteralNode) {
-                // FIXME
+                n.setAnnotation(BooleanType, TypeInfo::class.java)
             }
 
             override fun nullLiteral(n: NullLiteralNode) {
-                // FIXME
+                n.setAnnotation(NullType, TypeInfo::class.java)
             }
 
             override fun variableAccess(n: VariableAccessNode) {
-                // FIXME
+                val variable = variableLookup.lookup(n.varName.text)
+                if (variable == null) throw CompilerException(cu.source, "Variable '${n.varName.text}' is not defined", n.varName)
+                n.setAnnotation(variable.type, TypeInfo::class.java)
             }
 
             override fun arrayAccess(n: ArrayAccessNode) {
-                // FIXME
+                var baseType = n.array.getAnnotation(TypeInfo::class.java)
             }
 
             override fun fieldAccess(n: FieldAccessNode) {
-                // FIXME
+                var baseType = n.base.getAnnotation(TypeInfo::class.java)
+                if (!(baseType is StructureType)) throw CompilerException(cu.source, "Can't access field '${n.varName.text} of non-structure type ${baseType}", n.varName)
+                for (f in baseType.fields) {
+                    if (f.name.equals(n.varName.text)) {
+                        n.setAnnotation(f.type, TypeInfo::class.java)
+                        return
+                    }
+                }
+                throw CompilerException(cu.source, "Type ${baseType.fullyQualifiedName()} has no field '${n.varName.text}", n.varName)
             }
 
             override fun functionCall(n: FunctionCallNode) {
@@ -349,7 +429,6 @@ private fun resolveAllTypes(state: CompilerState) {
 
 fun typeToString(t: TypeInfo): String {
     when (t) {
-        is NamedType -> return typeToString(t.type)
         is PrimitiveType -> return t.name
         is StructureType -> return if (t.module.isEmpty()) t.name else t.module + "." + t.name
         is FunctionType -> {
@@ -373,6 +452,17 @@ fun typeToString(t: TypeInfo): String {
     }
 }
 
-fun typesEqual(a: TypeInfo, b: TypeInfo): Boolean {
-    return true
+fun assignable(to: TypeInfo, from: TypeInfo): Boolean {
+    if (to.javaClass != from.javaClass) return false;
+
+    if ((to is PrimitiveType) and (from is PrimitiveType)) {
+        if (to == from) return true
+    } else if ((to is StructureType) and (from is StructureType)) {
+        if (to == from) return true
+    } else if ((to is ArrayType) and (from is ArrayType)) {
+        val toArray = to as ArrayType
+        val fromArray = from as ArrayType
+        return assignable(toArray.elementType, fromArray.elementType)
+    }
+    return false
 }

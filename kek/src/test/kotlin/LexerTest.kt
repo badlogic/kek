@@ -46,8 +46,8 @@ class LexerTest {
 
     @Test
     fun testNumber() {
-        var tokens = tokenize(Source("","0 1234 123.2 .234 "))
-        assertEquals(6, tokens.size)
+        var tokens = tokenize(Source("","0 1234 123.2 .234 0.123d 7123478943l"))
+        assertEquals(8, tokens.size)
         assertEquals(TokenType.NUMBER, tokens[1].type)
         assertEquals("1234", tokens[1].text)
         assertEquals(TokenType.NUMBER, tokens[2].type)
@@ -56,7 +56,11 @@ class LexerTest {
         assertEquals(".", tokens[3].text)
         assertEquals(TokenType.NUMBER, tokens[4].type)
         assertEquals("234", tokens[4].text)
-        assertEquals(TokenType.EOF, tokens[5].type)
+        assertEquals(TokenType.NUMBER, tokens[5].type)
+        assertEquals("0.123d", tokens[5].text)
+        assertEquals(TokenType.NUMBER, tokens[6].type)
+        assertEquals("7123478943l", tokens[6].text)
+        assertEquals(TokenType.EOF, tokens[7].type)
     }
 
     @Test

@@ -234,6 +234,7 @@ private fun tryMatchNumber(state: LexerState) {
     }
 
     if (c != '.') {
+        if((c == 'd') or (c == 'l')) nextChar(state)
         state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.sourceCode.substring(start, state.index)))
         return
     }
@@ -254,6 +255,7 @@ private fun tryMatchNumber(state: LexerState) {
         c = state.input.sourceCode[state.index]
     }
 
+    if((c == 'd') or (c == 'l')) nextChar(state)
     state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.sourceCode.substring(start, state.index)))
 }
 
