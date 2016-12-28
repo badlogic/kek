@@ -68,7 +68,7 @@ class VariableLookup {
 
 class CompilerException(val source: Source, val msg: String, val line: Int, val columnStart: Int, val columnEnd: Int) : RuntimeException(msg) {
 
-    constructor(source: Source, msg: String, token: Token) : this(source, msg, token.line, token.column, token.column + token.text.length){
+    constructor(source: Source, msg: String, token: Token) : this(source, msg, token.line, token.column, token.column + token.text.length) {
     }
 
     override fun toString(): String {
@@ -233,7 +233,7 @@ private fun resolveAllTypes(state: CompilerState) {
 
             override fun pushScope(n: AstNode) {
                 variableLookup.pushScope()
-                when(n) {
+                when (n) {
                     is FunctionNode -> {
                         for (p in n.parameters) {
                             val pt = p.getAnnotation(NamedType::class.java)
@@ -341,14 +341,14 @@ private fun resolveAllTypes(state: CompilerState) {
             }
 
             override fun parenthesis(n: ParenthesisNode) {
-                // FIXME
+                n.setAnnotation(n.expr.getAnnotation(TypeInfo::class.java), TypeInfo::class.java)
             }
         });
     }
 }
 
 fun typeToString(t: TypeInfo): String {
-    when(t) {
+    when (t) {
         is NamedType -> return typeToString(t.type)
         is PrimitiveType -> return t.name
         is StructureType -> return if (t.module.isEmpty()) t.name else t.module + "." + t.name
