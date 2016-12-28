@@ -34,7 +34,7 @@ enum class VariableType {
     Parameter
 }
 
-class Variable(val name: String, val symbolType: VariableType, val type: TypeInfo)
+class Variable(val location: Token, val name: String, val symbolType: VariableType, val type: TypeInfo)
 
 class VariableLookup {
     private val variablesStack = mutableListOf<MutableMap<String, Variable>>()
@@ -227,8 +227,10 @@ private fun resolveAllTypes(state: CompilerState) {
         val variableLookup = VariableLookup()
 
         traverseAstDepthFirst(cu, object : AstVisitorAdapter() {
+            override fun function(n: FunctionNode) {
+            }
+
             override fun variableDeclaration(n: VariableDeclarationNode) {
-                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
             }
 
             override fun returnStatement(n: ReturnNode) {
@@ -285,6 +287,10 @@ private fun resolveAllTypes(state: CompilerState) {
 
             override fun booleanLiteral(n: BooleanLiteralNode) {
                 throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun nullLiteral(n: NullLiteralNode) {
+                super.nullLiteral(n)
             }
 
             override fun variableAccess(n: VariableAccessNode) {
