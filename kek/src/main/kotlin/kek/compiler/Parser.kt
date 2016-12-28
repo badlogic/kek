@@ -281,10 +281,17 @@ private fun forStatement(state: ParserState): ForNode {
     return ForNode(initializer, condition, increment, body, firstToken, state.last())
 }
 
+val expressionStartTokens = listOf(
+        TokenType.L_PARA,
+        TokenType.TRUE, TokenType.FALSE, TokenType.NUMBER, TokenType.CHARACTER, TokenType.STRING,
+        TokenType.IDENTIFIER
+)
+
 private fun returnStatement(state: ParserState): ReturnNode {
     val firstToken = state.current()
     if (!match(state, TokenType.RETURN, true)) error("Expected return")
-    return ReturnNode(expression(state), firstToken, state.last())
+    if (match(state, expressionStartTokens)) return ReturnNode(expression(state), firstToken, state.last())
+    else return ReturnNode(EmptyExpressionNode(firstToken, state.last()), firstToken, state.last())
 }
 
 private fun variableDeclaration(state: ParserState, expectVar: Boolean = true): VariableDeclarationNode {
@@ -413,6 +420,10 @@ private fun factor(state: ParserState): ExpressionNode {
     }
 
     // match literals
+    if (match(state, TokenType.NULL, true)) {
+        return NullLiteralNode(firstToken, state.last())
+    }
+
     if (match(state, TokenType.TRUE) or match(state, TokenType.FALSE)) {
         return BooleanLiteralNode(next(state), firstToken, state.last())
     }
@@ -438,8 +449,7 @@ private fun factor(state: ParserState): ExpressionNode {
                 if (!match(state, TokenType.R_PARA)) {
                     while (true) {
                         args.add(expression(state))
-                        if (!match(state, TokenType.COMMA)) break
-                        else next(state)
+                        if (!match(state, TokenType.COMMA, true)) break
                     }
                     if (!match(state, TokenType.R_PARA, true)) error(state, "Expected closing paranthesis )")
                 } else {
@@ -469,6 +479,6 @@ private fun factor(state: ParserState): ExpressionNode {
         return lastExpr
     }
 
-    error(state, "Expected a number, character, string, variable name or function call")
+    error(state, "Expected a boolean, number, character, string, variable name or function call")
     return EmptyExpressionNode(firstToken, state.last())
 }

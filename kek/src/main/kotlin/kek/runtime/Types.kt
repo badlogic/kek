@@ -16,7 +16,11 @@ data class OptionalType(val elementType: TypeInfo) : TypeInfo
 data class NamedType(val name: String, val type: TypeInfo) : TypeInfo
 
 data class StructureType(val location: Location, val module: String, val name: String,
-                         val fields: MutableList<NamedType> = mutableListOf<NamedType>()) : TypeInfo
+                         val fields: MutableList<NamedType> = mutableListOf<NamedType>()) : TypeInfo {
+    override fun toString(): String {
+        return "StructureType(module=${module}, name=${name})"
+    }
+}
 
 data class FunctionType(val location: Location, val module: String, val name: String, val extern: Boolean,
                         val parameters: MutableList<NamedType> = mutableListOf<NamedType>(), var returnType: TypeInfo = UnknownType) : TypeInfo

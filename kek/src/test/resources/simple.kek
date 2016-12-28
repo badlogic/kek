@@ -7,7 +7,27 @@ structure Point
     y:float
 end
 
+structure Triangle
+    p1: Point
+    p2: Point
+    p3: Point
+end
+
+structure Mesh
+    vertices: Vector3[]
+    indices: int[]?
+end
+
+
 function distance(p1: Point, p2: Point): float
     var distance = (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y)
     return sqrt(distance)
+end
+
+function emptyReturn ()
+    return
+end
+
+function nullReturn ()
+    return null
 end

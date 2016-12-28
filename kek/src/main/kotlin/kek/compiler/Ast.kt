@@ -100,6 +100,9 @@ class NumberLiteralNode(val literal: Token, firstToken: Token, lastToken: Token)
 class BooleanLiteralNode(val literal: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
 }
 
+class NullLiteralNode(firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
+}
+
 class VariableAccessNode(val varName: Token, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken) {
 }
 
@@ -136,6 +139,7 @@ interface AstVisitor {
     fun stringLiteral(n: StringLiteralNode)
     fun numberLiteral(n: NumberLiteralNode)
     fun booleanLiteral(n: BooleanLiteralNode)
+    fun nullLiteral(n: NullLiteralNode)
     fun variableAccess(n: VariableAccessNode)
     fun arrayAccess(n: ArrayAccessNode)
     fun fieldAccess(n: FieldAccessNode)
@@ -143,54 +147,81 @@ interface AstVisitor {
     fun parenthesis(n: ParenthesisNode)
 }
 
-abstract class AstVisitorAdapter: AstVisitor {
-    override fun namespace(namespace: String) { }
+abstract class AstVisitorAdapter : AstVisitor {
+    override fun namespace(namespace: String) {
+    }
 
-    override fun compilationUnit(n: CompilationUnitNode) { }
+    override fun compilationUnit(n: CompilationUnitNode) {
+    }
 
-    override fun structure(n: StructureNode) { }
+    override fun structure(n: StructureNode) {
+    }
 
-    override fun function(n: FunctionNode) { }
+    override fun function(n: FunctionNode) {
+    }
 
-    override fun variableDeclaration(n: VariableDeclarationNode) { }
+    override fun variableDeclaration(n: VariableDeclarationNode) {
+    }
 
-    override fun returnStatement(n: ReturnNode) { }
+    override fun returnStatement(n: ReturnNode) {
+    }
 
-    override fun ifStatement(n: IfNode) { }
+    override fun ifStatement(n: IfNode) {
+    }
 
-    override fun forStatement(n: ForNode) { }
+    override fun forStatement(n: ForNode) {
+    }
 
-    override fun whileStatement(n: WhileNode) { }
+    override fun whileStatement(n: WhileNode) {
+    }
 
-    override fun doStatement(n: DoNode) { }
+    override fun doStatement(n: DoNode) {
+    }
 
-    override fun breakStatement(n: BreakNode) { }
+    override fun breakStatement(n: BreakNode) {
+    }
 
-    override fun continueStatement(n: ContinueNode) { }
+    override fun continueStatement(n: ContinueNode) {
+    }
 
-    override fun unaryOperator(n: UnaryOperatorNode) { }
+    override fun unaryOperator(n: UnaryOperatorNode) {
+    }
 
-    override fun binaryOperator(n: BinaryOperatorNode) { }
+    override fun binaryOperator(n: BinaryOperatorNode) {
+    }
 
-    override fun ternaryOperator(n: TernaryOperatorNode) { }
+    override fun ternaryOperator(n: TernaryOperatorNode) {
+    }
 
-    override fun charLiteral(n: CharacterLiteralNode) { }
+    override fun charLiteral(n: CharacterLiteralNode) {
+    }
 
-    override fun stringLiteral(n: StringLiteralNode) { }
+    override fun stringLiteral(n: StringLiteralNode) {
+    }
 
-    override fun numberLiteral(n: NumberLiteralNode) { }
+    override fun numberLiteral(n: NumberLiteralNode) {
+    }
 
-    override fun booleanLiteral(n: BooleanLiteralNode) { }
+    override fun booleanLiteral(n: BooleanLiteralNode) {
+    }
 
-    override fun variableAccess(n: VariableAccessNode) { }
+    override fun nullLiteral(n: NullLiteralNode) {
+    }
 
-    override fun arrayAccess(n: ArrayAccessNode) { }
+    override fun variableAccess(n: VariableAccessNode) {
+    }
 
-    override fun fieldAccess(n: FieldAccessNode) { }
+    override fun arrayAccess(n: ArrayAccessNode) {
+    }
 
-    override fun functionCall(n: FunctionCallNode) { }
+    override fun fieldAccess(n: FieldAccessNode) {
+    }
 
-    override fun parenthesis(n: ParenthesisNode) { }
+    override fun functionCall(n: FunctionCallNode) {
+    }
+
+    override fun parenthesis(n: ParenthesisNode) {
+    }
 }
 
 fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<out AstNode>> = emptySet()) {
@@ -201,7 +232,6 @@ fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<
 
             for (s in ast.structs) {
                 traverseAstDepthFirst(s, visitor, include)
-                visitor.structure(s)
             }
 
             for (f in ast.functions) {
@@ -280,6 +310,9 @@ fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<
         is BooleanLiteralNode -> {
             visitor.booleanLiteral(ast)
         }
+        is NullLiteralNode -> {
+            visitor.nullLiteral(ast)
+        }
         is VariableAccessNode -> {
             visitor.variableAccess(ast)
         }
@@ -338,6 +371,7 @@ fun printAstNode(p: String, n: AstNode, nodes: StringBuffer, edges: StringBuffer
     else if (n is StringLiteralNode) return printStringLiteral(p, n, nodes, edges)
     else if (n is NumberLiteralNode) return printNumberLiteral(p, n, nodes, edges)
     else if (n is BooleanLiteralNode) return printBooleanLiteral(p, n, nodes, edges)
+    else if (n is NullLiteralNode) return printNullLiteral(p, n, nodes, edges)
     else if (n is VariableAccessNode) return printVariableAccess(p, n, nodes, edges)
     else if (n is ArrayAccessNode) return printArrayAccess(p, n, nodes, edges)
     else if (n is FieldAccessNode) return printFieldAccess(p, n, nodes, edges)
@@ -489,6 +523,13 @@ fun printArrayAccess(p: String, n: ArrayAccessNode, nodes: StringBuffer, edges: 
 fun printVariableAccess(p: String, n: VariableAccessNode, nodes: StringBuffer, edges: StringBuffer): String {
     val name = "s${i++}"
     nodes.append("$name [label=\"Variable access '${n.varName.text}'\"]\n")
+    edges.append("$p->$name\n")
+    return name
+}
+
+fun printNullLiteral(p: String, n: NullLiteralNode, nodes: StringBuffer, edges: StringBuffer): String {
+    val name = "s${i++}"
+    nodes.append("$name [label=\"Null\"]\n")
     edges.append("$p->$name\n")
     return name
 }

@@ -59,6 +59,7 @@ enum class TokenType(val keyword: String = "", val hasOverlap: Boolean = false) 
     SHR("shr", true),
     TRUE("true", true),
     FALSE("false", true),
+    NULL("null", true),
 
     NUMBER(),
     CHARACTER(),

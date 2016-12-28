@@ -19,7 +19,7 @@ data class Module(val name: String,
         return result
     }
 
-    fun lookupFunction(name:String): List<FunctionType> {
+    fun lookupFunction(name: String): List<FunctionType> {
         val moduleName = moduleNameFromFQName(name)
         val strippedName = stripModuleName(name)
         if (!moduleName.isEmpty() and !moduleName.equals(name)) return emptyList()
@@ -29,7 +29,7 @@ data class Module(val name: String,
         else return result
     }
 
-    fun lookupPrimitiveOrStructure(name:String): List<TypeInfo> {
+    fun lookupPrimitiveOrStructure(name: String): List<TypeInfo> {
         val moduleName = moduleNameFromFQName(name)
         val strippedName = stripModuleName(name)
         if (!moduleName.isEmpty() and !moduleName.equals(name)) return emptyList()
@@ -69,8 +69,7 @@ fun printModule(module: Module): String {
     for (s in module.structures.values) {
         buffer.appendln("\t\t${s.name}")
         for (f in s.fields) {
-            val typeString = if(f.type is StructureType) "StructureType(module=${f.type.module},name=${f.type.name})" else f.type.toString()
-            buffer.appendln("\t\t\t${f.name}: ${typeString}")
+            buffer.appendln("\t\t\t${f.name}: ${f.type}")
         }
         buffer.appendln()
     }
@@ -79,8 +78,7 @@ fun printModule(module: Module): String {
         for (f in fl) {
             buffer.appendln("\t\t${f.name}")
             for (p in f.parameters) {
-                val typeString = if(p.type is StructureType) "StructureType(module=${p.type.module},name=${p.type.name})" else p.type.toString()
-                buffer.appendln("\t\t\t${p.name}: ${typeString}")
+                buffer.appendln("\t\t\t${p.name}: ${p.type}")
             }
             buffer.appendln("\t\t\treturn: ${f.returnType}")
         }

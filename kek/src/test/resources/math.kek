@@ -4,3 +4,14 @@ extern function sqrt(value: float): float
 extern function sqrt(value: double): double
 extern function cos(value: float): float
 extern function sin(value: float): float
+
+structure Vector
+    x: float
+    y: float
+end
+
+structure Vector3
+    x: float
+    y: float
+    z: float
+end

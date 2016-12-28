@@ -2,7 +2,7 @@ package kek.compiler
 
 import kek.runtime.*
 
-class ModuleTypeLookup (val modules: List<Module>) {
+class ModuleTypeLookup(val modules: List<Module>) {
     fun lookup(name: String): List<TypeInfo> {
         val result = mutableListOf<TypeInfo>()
         for (m in modules) {
@@ -25,6 +25,42 @@ class ModuleTypeLookup (val modules: List<Module>) {
             result.addAll(m.lookupPrimitiveOrStructure(name))
         }
         return result
+    }
+}
+
+enum class VariableType {
+    Global,
+    Local,
+    Parameter
+}
+
+class Variable(val name: String, val symbolType: VariableType, val type: TypeInfo)
+
+class VariableLookup {
+    private val variablesStack = mutableListOf<MutableMap<String, Variable>>()
+
+    constructor() {
+        pushScope()
+    }
+
+    fun pushScope() {
+        variablesStack.add(mutableMapOf())
+    }
+
+    fun popScope() {
+        variablesStack.removeAt(variablesStack.lastIndex)
+    }
+
+    fun add(symbol: Variable) {
+        variablesStack.last().put(symbol.name, symbol)
+    }
+
+    fun lookup(name: String): Variable? {
+        for (i in variablesStack.lastIndex downTo 0) {
+            val variables = variablesStack[i]
+            if (variables.containsKey(name)) return variables[name]!!
+        }
+        return null
     }
 }
 
@@ -68,6 +104,7 @@ fun compile(sources: List<Source>): CompilerState {
 
     gatherModules(state)
     resolveTopLevelTypes(state)
+    resolveAllTypes(state)
 
     return state
 }
@@ -132,7 +169,7 @@ private fun resolveTopLevelTypes(state: CompilerState) {
         }
         val lookup = ModuleTypeLookup(importedModules)
 
-        traverseAstDepthFirst(cu, object: AstVisitorAdapter() {
+        traverseAstDepthFirst(cu, object : AstVisitorAdapter() {
             override fun structure(n: StructureNode) {
                 val structure = n.getAnnotation(StructureType::class.java)
 
@@ -167,12 +204,109 @@ private fun typeNodeToType(lookup: ModuleTypeLookup, source: Source, typeOfWhat:
     val candidateTypes = lookup.lookupPrimitiveOrStructure(node.fullyQualfiedName())
     if (candidateTypes.size == 1) {
         var type = candidateTypes[0]
-        if (node.isArray)  type = ArrayType(type)
+        if (node.isArray) type = ArrayType(type)
         if (node.isOptional) type = OptionalType(type)
         return type
-    } else if (candidateTypes.size > 1){
+    } else if (candidateTypes.size > 1) {
         throw CompilerException(source, "Multiple types matching type of ${typeOfWhat}", token.line, token.column, token.column + token.text.length)
     } else {
         throw CompilerException(source, "Could not find type '${node.fullyQualfiedName()}' of ${typeOfWhat}", node.firstToken.line, node.firstToken.column, node.lastToken.column + node.lastToken.text.length)
+    }
+}
+
+private fun resolveAllTypes(state: CompilerState) {
+    for (cu in state.compilationUnits) {
+        val importedModules = mutableListOf<Module>()
+        importedModules.add(state.modules[""]!!)
+        importedModules.add(cu.getAnnotation(Module::class.java))
+        for (i in cu.imports) {
+            if (!state.modules.containsKey(i.importName)) throw CompilerException(cu.source, "Could not find imported module '${i.importName}'", i.firstToken.line, i.firstToken.column, i.firstToken.column + i.importName.length)
+            importedModules.add(state.modules[i.importName]!!)
+        }
+        val typeLookup = ModuleTypeLookup(importedModules)
+        val variableLookup = VariableLookup()
+
+        traverseAstDepthFirst(cu, object : AstVisitorAdapter() {
+            override fun variableDeclaration(n: VariableDeclarationNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun returnStatement(n: ReturnNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun ifStatement(n: IfNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun forStatement(n: ForNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun whileStatement(n: WhileNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun doStatement(n: DoNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun breakStatement(n: BreakNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun continueStatement(n: ContinueNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun unaryOperator(n: UnaryOperatorNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun binaryOperator(n: BinaryOperatorNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun ternaryOperator(n: TernaryOperatorNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun charLiteral(n: CharacterLiteralNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun stringLiteral(n: StringLiteralNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun numberLiteral(n: NumberLiteralNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun booleanLiteral(n: BooleanLiteralNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun variableAccess(n: VariableAccessNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun arrayAccess(n: ArrayAccessNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun fieldAccess(n: FieldAccessNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun functionCall(n: FunctionCallNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun parenthesis(n: ParenthesisNode) {
+                throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+        });
     }
 }
