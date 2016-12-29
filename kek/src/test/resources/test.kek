@@ -1,4 +1,4 @@
-module my.fucking.thing
+module my.module
 
 import math
 
