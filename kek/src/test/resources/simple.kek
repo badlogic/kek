@@ -5,6 +5,14 @@ import math
 structure Point
     x:float
     y:float
+
+    function muh()
+    end
+
+    function distance(p2: Point): float
+        muh()
+        return 0.0
+    end
 end
 
 structure Triangle
@@ -21,7 +29,7 @@ end
 function distance(p1: simple.Point, p2: Point): float
     var v = 3
     var distance = (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y)
-    return sqrt(distance)
+    return math.sqrt(distance)
 end
 
 function emptyReturn ()

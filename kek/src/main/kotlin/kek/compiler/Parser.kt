@@ -112,20 +112,28 @@ private fun structure(state: ParserState): StructureNode {
     if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected structure name")
     val name = next(state)
     val fields = mutableListOf<VariableDeclarationNode>()
+    val functions = mutableListOf<FunctionNode>()
     while (!match(state, TokenType.END)) {
-        fields.add(variableDeclaration(state, false))
+        if (match(state, TokenType.FUNCTION)) functions.add(function(state))
+        else fields.add(variableDeclaration(state, false))
     }
     if (!match(state, TokenType.END, true)) error(state, "Expected end")
-    return StructureNode(name, fields, firstToken, state.last())
+    return StructureNode(name, fields, functions, firstToken, state.last())
 }
 
 
-private fun function(state: ParserState): FunctionNode {
+private fun function(state: ParserState, isConstructor: Boolean = false): FunctionNode {
     val firstToken = state.current()
-    val extern = match(state, TokenType.EXTERN, true)
+    val extern: Boolean
 
-    if (!match(state, TokenType.FUNCTION, true)) error(state, "Expected a function definition")
-    if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected function name")
+    if (isConstructor) {
+        extern = false
+        if (!match(state, TokenType.CONSTRUCTOR)) error(state, "Expected a constructor definition")
+    } else {
+        extern = match(state, TokenType.EXTERN, true)
+        if (!match(state, TokenType.FUNCTION, true)) error(state, "Expected a function definition")
+        if (!match(state, TokenType.IDENTIFIER)) error(state, "Expected function name")
+    }
     val name: Token = next(state)
     val parameterList = parameterList(state)
 

@@ -281,13 +281,13 @@ fun printModule(module: Module): String {
 
     buffer.appendln("Module ${module.name}")
     buffer.appendln("\tImports")
-    for (i in module.imports)
+    for (i in module.imports())
         buffer.appendln("\t\t${i}")
     buffer.appendln("\tPrimitive Types")
-    for (t in module.primitiveTypes.values)
+    for (t in module.primitiveTypes().values)
         buffer.appendln("\t\t${t}")
     buffer.appendln("\tStructures")
-    for (s in module.structures.values) {
+    for (s in module.structures().values) {
         buffer.appendln("\t\t${s.name}")
         for (f in s.fields) {
             buffer.appendln("\t\t\t${f.name}: ${f.type}")
@@ -295,7 +295,7 @@ fun printModule(module: Module): String {
         buffer.appendln()
     }
     buffer.appendln("\tFunctions")
-    for (fl in module.functions.values)
+    for (fl in module.functions().values)
         for (f in fl) {
             buffer.appendln("\t\t${f.name}")
             for (p in f.parameters) {

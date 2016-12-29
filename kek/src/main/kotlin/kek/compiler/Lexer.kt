@@ -37,6 +37,7 @@ enum class TokenType(val keyword: String = "", val hasOverlap: Boolean = false) 
     IMPORT("import", true),
     STRUCTURE("structure", true),
     FUNCTION("function", true),
+    CONSTRUCTOR("constructor", true),
     EXTERN("extern", true),
     IF("if", true),
     THEN("then", true),

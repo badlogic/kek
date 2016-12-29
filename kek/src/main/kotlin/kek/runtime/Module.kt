@@ -1,12 +1,43 @@
 package kek.runtime
 
+import kek.compiler.CompilerException
 import java.sql.Struct
 
 data class Module(val name: String,
-                  val imports: MutableSet<String> = mutableSetOf(),
-                  val functions: MutableMap<String, MutableList<FunctionType>> = mutableMapOf(),
-                  val primitiveTypes: MutableMap<String, PrimitiveType> = mutableMapOf(),
-                  val structures: MutableMap<String, StructureType> = mutableMapOf()) {
+                  private val imports: MutableSet<String> = mutableSetOf(),
+                  private val functions: MutableMap<String, MutableList<FunctionType>> = mutableMapOf(),
+                  private val primitiveTypes: MutableMap<String, PrimitiveType> = mutableMapOf(),
+                  private val structures: MutableMap<String, StructureType> = mutableMapOf()) {
+
+    fun imports(): Set<String> { return imports }
+    fun addImport(import: String) { imports.add(import) }
+
+    fun functions(): Map<String, List<FunctionType>> { return functions }
+
+    fun addFunction(name: String, func: FunctionType) {
+        var funcs = functions[func.name]
+        if (funcs == null) {
+            funcs = mutableListOf()
+            functions[func.name] = funcs
+        }
+        funcs.add(func)
+    }
+
+    fun primitiveTypes(): Map<String, PrimitiveType> { return primitiveTypes }
+
+    fun addPrimitiveType(name: String, prim: PrimitiveType) {
+        primitiveTypes.put(name, prim)
+    }
+
+    fun structures(): Map<String, StructureType> { return structures }
+
+    fun addStructure(name: String, struct: StructureType) {
+        if (structures.containsKey(name)) {
+            val otherStruct = structures[name]!!
+            throw RuntimeException("Structure ${name}.${name} already defined in ${otherStruct.location.source.location}:(${otherStruct.location.line}, ${otherStruct.location.column})")
+        }
+        structures[struct.name] = struct
+    }
 
     fun lookup(name: String): List<TypeInfo> {
         val moduleName = moduleNameFromFQName(name)
@@ -27,6 +58,14 @@ data class Module(val name: String,
         val result = this.functions[strippedName]
         if (result == null) return emptyList()
         else return result
+    }
+
+    fun lookupStructure(name: String): StructureType? {
+        val moduleName = moduleNameFromFQName(name)
+        val strippedName = stripModuleName(name)
+        if (!moduleName.isEmpty() and !moduleName.equals(this.name)) return null
+
+        return this.structures[strippedName]
     }
 
     fun lookupPrimitiveOrStructure(name: String): List<TypeInfo> {

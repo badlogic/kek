@@ -16,7 +16,7 @@ data class OptionalType(val elementType: TypeInfo) : TypeInfo
 data class NamedType(val name: String, val type: TypeInfo)
 
 data class StructureType(val location: Location, val module: String, val name: String,
-                         val fields: MutableList<NamedType> = mutableListOf<NamedType>()) : TypeInfo {
+                         val fields: MutableList<NamedType> = mutableListOf<NamedType>(), val functions: MutableList<FunctionType> = mutableListOf<FunctionType>()) : TypeInfo {
     override fun toString(): String {
         return "StructureType(module=${module}, name=${name})"
     }
@@ -26,8 +26,15 @@ data class StructureType(val location: Location, val module: String, val name: S
     }
 }
 
+enum class FunctionUsage {
+    Function,
+    Initializer,
+    Constructor,
+    Method,
+}
+
 data class FunctionType(val location: Location, val module: String, val name: String, val extern: Boolean,
-                        val parameters: MutableList<NamedType> = mutableListOf<NamedType>(), var returnType: TypeInfo = UnknownType) : TypeInfo
+                        val parameters: MutableList<NamedType> = mutableListOf<NamedType>(), var returnType: TypeInfo = UnknownType, val usage: FunctionUsage = FunctionUsage.Function) : TypeInfo
 
 val Int8Type = PrimitiveType("int8", true)
 val Int16Type = PrimitiveType("int16", true)

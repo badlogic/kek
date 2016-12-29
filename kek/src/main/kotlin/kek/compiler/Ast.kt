@@ -22,7 +22,7 @@ class CompilationUnitNode(val source: Source, val module: String = "", val impor
 class ImportNode(val importName: String, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
 }
 
-class StructureNode(val name: Token, val fields: List<VariableDeclarationNode>, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
+class StructureNode(val name: Token, val fields: List<VariableDeclarationNode>, val functions: List<FunctionNode>, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
 }
 
 class FunctionNode(val name: Token, val parameters: List<ParameterNode>, val returnType: TypeNode, val body: BlockNode, val extern: Boolean, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken) {
@@ -257,6 +257,7 @@ fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<
             visitor.variableDeclaration(ast)
         }
         is ReturnNode -> {
+            if (ast.expression != null) traverseAstDepthFirst(ast.expression, visitor, include)
             visitor.returnStatement(ast)
         }
         is IfNode -> {
@@ -340,7 +341,9 @@ fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<
             visitor.fieldAccess(ast)
         }
         is FunctionCallNode -> {
-            traverseAstDepthFirst(ast.function, visitor, include)
+            // Note: the functionCall visitor is responsible for resolving the function
+            // we don't traverse the function expression here
+            for (arg in ast.arguments) traverseAstDepthFirst(arg, visitor, include)
             visitor.functionCall(ast)
         }
         is ParenthesisNode -> {
