@@ -495,10 +495,16 @@ private fun resolveTypes(state: CompilerState) {
                         val funcs = typeLookup.lookupFunction(functionName)
                         if (funcs.size == 0) {
                             traverseAst(root.base, this)
-                            if (root.base.getAnnotation(TypeInfo::class.java) is StructureType) {
-
+                            val baseType = root.base.getAnnotation(TypeInfo::class.java)
+                            if (baseType is StructureType) {
+                                val candidates = mutableListOf<FunctionType>()
+                                for (f in baseType.functions) {
+                                    if (f.usage == FunctionUsage.Method && f.name.equals(root.varName.text))
+                                        candidates.add(f)
+                                }
+                                resolveFunction(cu.source, candidates, n, root.varName)
                             } else {
-                                // FIXME reference to a function instance or struct method
+                                // FIXME reference to a function instance
                                 throw CompilerException(cu.source, "First class functions not implemented", n.firstToken)
                             }
                         } else {
@@ -532,7 +538,6 @@ fun resolveFunction(source: Source, funcs: List<FunctionType>, call: FunctionCal
         call.setAnnotation(candidates[0].returnType, TypeInfo::class.java)
         return
     } else {
-        // FIXME better error message, show candidates
         val types = StringBuffer()
         types.append("(")
         for (i in call.arguments.indices) {
