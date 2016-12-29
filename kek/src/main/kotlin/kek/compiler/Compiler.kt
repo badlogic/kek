@@ -62,10 +62,6 @@ private fun gatherModules(state: CompilerState) {
 
         cu.setAnnotation(module, Module::class.java)
 
-        for (i in cu.imports) {
-            module.addImport(i.importName)
-        }
-
         for (s in cu.structs) {
             val otherStruct = module.lookupStructure(s.name.text)
             if (otherStruct != null) {

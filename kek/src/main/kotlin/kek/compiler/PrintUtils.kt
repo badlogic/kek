@@ -280,9 +280,6 @@ fun printModule(module: Module): String {
     val buffer = StringBuffer()
 
     buffer.appendln("Module ${module.name}")
-    buffer.appendln("\tImports")
-    for (i in module.imports())
-        buffer.appendln("\t\t${i}")
 
     buffer.appendln("\tPrimitive Types")
     for (t in module.primitiveTypes().values)

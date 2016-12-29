@@ -474,7 +474,7 @@ private fun resolveTypes(state: CompilerState) {
             override fun functionCall(n: FunctionCallNode) {
                 val root = n.function
 
-                // FIXME add struct methods, add first class function support (call from field/variable, closures?)
+                // FIXME add first class function support
                 when (root) {
                 // simplest case, variable access, e.g. sqrt(1234), just look it up in the type lookup
                     is VariableAccessNode -> {

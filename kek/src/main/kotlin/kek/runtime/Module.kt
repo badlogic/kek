@@ -4,18 +4,9 @@ import kek.compiler.CompilerException
 import java.sql.Struct
 
 data class Module(val name: String,
-                  private val imports: MutableSet<String> = mutableSetOf(),
                   private val functions: MutableMap<String, MutableList<FunctionType>> = mutableMapOf(),
                   private val primitiveTypes: MutableMap<String, PrimitiveType> = mutableMapOf(),
                   private val structures: MutableMap<String, StructureType> = mutableMapOf()) {
-
-    fun imports(): Set<String> {
-        return imports
-    }
-
-    fun addImport(import: String) {
-        imports.add(import)
-    }
 
     fun functions(): Map<String, List<FunctionType>> {
         return functions
