@@ -3,13 +3,22 @@ module simple
 import math
 
 structure Point
-    x:float
-    y:float
+    x:float = 0
+    y:float = 0
+
+    constructor()
+    end
+
+    constructor(x: float, y: float)
+        this.x = x
+        this.y = y
+    end
 
     function muh()
     end
 
     function distance(p2: Point): float
+        this.muh()
         muh()
         return 0.0
     end
@@ -19,6 +28,18 @@ structure Triangle
     p1: Point
     p2: Point
     p3: Point
+
+    constructor()
+        this.p1 = simple.Point()
+        this.p2 = Point()
+        this.p3 = Point()
+    end
+
+    constructor(p1: Point, p2: Point, p3: Point)
+        this.p1 = p1
+        this.p2 = p2
+        this.p3 = p3
+    end
 end
 
 structure Mesh
@@ -26,9 +47,14 @@ structure Mesh
     indices: int[]?
 end
 
+structure Image
+end
+
 function distance(p1: simple.Point, p2: Point): float
     var v = 3
     var distance = (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y)
+    Point(0.0, 1.0).x
+    Triangle().p1.muh()
     return math.sqrt(distance)
 end
 

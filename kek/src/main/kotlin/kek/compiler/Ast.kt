@@ -45,7 +45,7 @@ open class TypeNode(val name: List<Token>, val isArray: Boolean, val isOptional:
 
 class NoTypeNode(firstToken: Token, lastToken: Token) : TypeNode(emptyList<Token>(), false, false, firstToken, lastToken)
 
-class BlockNode(val statements: List<StatementNode>, firstToken: Token, lastToken: Token): AstNode(firstToken, lastToken)
+class BlockNode(val statements: List<StatementNode>, firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken)
 
 abstract class StatementNode(firstToken: Token, lastToken: Token) : AstNode(firstToken, lastToken)
 
@@ -218,7 +218,7 @@ abstract class AstVisitorAdapter : AstVisitor {
     }
 }
 
-fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<out AstNode>> = emptySet()) {
+fun traverseAst(ast: AstNode, visitor: AstVisitor, include: Set<Class<out AstNode>> = emptySet()) {
     if (!include.isEmpty() and !include.contains(ast.javaClass)) return
     when (ast) {
         is CompilationUnitNode -> {
@@ -226,11 +226,11 @@ fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<
             visitor.namespace(ast.module)
 
             for (s in ast.structs) {
-                traverseAstDepthFirst(s, visitor, include)
+                traverseAst(s, visitor, include)
             }
 
             for (f in ast.functions) {
-                traverseAstDepthFirst(f, visitor, include)
+                traverseAst(f, visitor, include)
             }
 
             visitor.compilationUnit(ast)
@@ -238,57 +238,58 @@ fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<
         }
         is StructureNode -> {
             visitor.pushScope(ast)
+            // Note: the visitor is responsible for traversing the methods!
             visitor.structure(ast)
             visitor.popScope(ast)
         }
         is FunctionNode -> {
             visitor.pushScope(ast)
-            traverseAstDepthFirst(ast.body, visitor, include)
+            traverseAst(ast.body, visitor, include)
             visitor.function(ast)
             visitor.popScope(ast)
         }
         is BlockNode -> {
             visitor.pushScope(ast)
-            for (s in ast.statements) traverseAstDepthFirst(s, visitor, include)
+            for (s in ast.statements) traverseAst(s, visitor, include)
             visitor.popScope(ast)
         }
         is VariableDeclarationNode -> {
-            if (ast.initializer != null) traverseAstDepthFirst(ast.initializer, visitor, include)
+            if (ast.initializer != null) traverseAst(ast.initializer, visitor, include)
             visitor.variableDeclaration(ast)
         }
         is ReturnNode -> {
-            if (ast.expression != null) traverseAstDepthFirst(ast.expression, visitor, include)
+            if (ast.expression != null) traverseAst(ast.expression, visitor, include)
             visitor.returnStatement(ast)
         }
         is IfNode -> {
-            traverseAstDepthFirst(ast.condition, visitor, include)
-            traverseAstDepthFirst(ast.trueBody, visitor, include)
-            for (e in ast.elseIfs) traverseAstDepthFirst(e, visitor, include)
-            traverseAstDepthFirst(ast.falseBody, visitor, include)
+            traverseAst(ast.condition, visitor, include)
+            traverseAst(ast.trueBody, visitor, include)
+            for (e in ast.elseIfs) traverseAst(e, visitor, include)
+            traverseAst(ast.falseBody, visitor, include)
             visitor.ifStatement(ast)
         }
         is ForNode -> {
             visitor.pushScope(ast)
             visitor.pushLoop(ast)
-            for (s in ast.initializer) traverseAstDepthFirst(s, visitor, include)
-            traverseAstDepthFirst(ast.condition, visitor, include)
-            for (s in ast.increment) traverseAstDepthFirst(s, visitor, include)
-            traverseAstDepthFirst(ast.body, visitor, include)
+            for (s in ast.initializer) traverseAst(s, visitor, include)
+            traverseAst(ast.condition, visitor, include)
+            for (s in ast.increment) traverseAst(s, visitor, include)
+            traverseAst(ast.body, visitor, include)
             visitor.forStatement(ast)
             visitor.popLoop(ast)
             visitor.popScope(ast)
         }
         is WhileNode -> {
             visitor.pushLoop(ast)
-            traverseAstDepthFirst(ast.condition, visitor, include)
-            traverseAstDepthFirst(ast.body, visitor, include)
+            traverseAst(ast.condition, visitor, include)
+            traverseAst(ast.body, visitor, include)
             visitor.whileStatement(ast)
             visitor.popLoop(ast)
         }
         is DoNode -> {
             visitor.pushLoop(ast)
-            traverseAstDepthFirst(ast.body, visitor, include)
-            traverseAstDepthFirst(ast.condition, visitor, include)
+            traverseAst(ast.body, visitor, include)
+            traverseAst(ast.condition, visitor, include)
             visitor.doStatement(ast)
             visitor.popLoop(ast)
         }
@@ -299,18 +300,18 @@ fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<
             visitor.continueStatement(ast)
         }
         is UnaryOperatorNode -> {
-            traverseAstDepthFirst(ast.expr, visitor, include)
+            traverseAst(ast.expr, visitor, include)
             visitor.unaryOperator(ast)
         }
         is BinaryOperatorNode -> {
-            traverseAstDepthFirst(ast.left, visitor, include)
-            traverseAstDepthFirst(ast.right, visitor, include)
+            traverseAst(ast.left, visitor, include)
+            traverseAst(ast.right, visitor, include)
             visitor.binaryOperator(ast)
         }
         is TernaryOperatorNode -> {
-            traverseAstDepthFirst(ast.left, visitor, include)
-            traverseAstDepthFirst(ast.middle, visitor, include)
-            traverseAstDepthFirst(ast.right, visitor, include)
+            traverseAst(ast.left, visitor, include)
+            traverseAst(ast.middle, visitor, include)
+            traverseAst(ast.right, visitor, include)
             visitor.ternaryOperator(ast)
         }
         is CharacterLiteralNode -> {
@@ -332,22 +333,22 @@ fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<
             visitor.variableAccess(ast)
         }
         is ArrayAccessNode -> {
-            traverseAstDepthFirst(ast.index, visitor, include)
-            traverseAstDepthFirst(ast.array, visitor, include)
+            traverseAst(ast.index, visitor, include)
+            traverseAst(ast.array, visitor, include)
             visitor.arrayAccess(ast)
         }
         is FieldAccessNode -> {
-            traverseAstDepthFirst(ast.base, visitor, include)
+            traverseAst(ast.base, visitor, include)
             visitor.fieldAccess(ast)
         }
         is FunctionCallNode -> {
             // Note: the functionCall visitor is responsible for resolving the function
             // we don't traverse the function expression here
-            for (arg in ast.arguments) traverseAstDepthFirst(arg, visitor, include)
+            for (arg in ast.arguments) traverseAst(arg, visitor, include)
             visitor.functionCall(ast)
         }
         is ParenthesisNode -> {
-            traverseAstDepthFirst(ast.expr, visitor, include)
+            traverseAst(ast.expr, visitor, include)
             visitor.parenthesis(ast)
         }
         else -> throw Exception("Unhandled AST node")

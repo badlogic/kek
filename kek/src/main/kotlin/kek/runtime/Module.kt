@@ -9,32 +9,43 @@ data class Module(val name: String,
                   private val primitiveTypes: MutableMap<String, PrimitiveType> = mutableMapOf(),
                   private val structures: MutableMap<String, StructureType> = mutableMapOf()) {
 
-    fun imports(): Set<String> { return imports }
-    fun addImport(import: String) { imports.add(import) }
+    fun imports(): Set<String> {
+        return imports
+    }
 
-    fun functions(): Map<String, List<FunctionType>> { return functions }
+    fun addImport(import: String) {
+        imports.add(import)
+    }
+
+    fun functions(): Map<String, List<FunctionType>> {
+        return functions
+    }
 
     fun addFunction(name: String, func: FunctionType) {
-        var funcs = functions[func.name]
+        var funcs = functions[name]
         if (funcs == null) {
             funcs = mutableListOf()
-            functions[func.name] = funcs
+            functions[name] = funcs
         }
         funcs.add(func)
     }
 
-    fun primitiveTypes(): Map<String, PrimitiveType> { return primitiveTypes }
+    fun primitiveTypes(): Map<String, PrimitiveType> {
+        return primitiveTypes
+    }
 
     fun addPrimitiveType(name: String, prim: PrimitiveType) {
         primitiveTypes.put(name, prim)
     }
 
-    fun structures(): Map<String, StructureType> { return structures }
+    fun structures(): Map<String, StructureType> {
+        return structures
+    }
 
     fun addStructure(name: String, struct: StructureType) {
         if (structures.containsKey(name)) {
             val otherStruct = structures[name]!!
-            throw RuntimeException("Structure ${name}.${name} already defined in ${otherStruct.location.source.location}:(${otherStruct.location.line}, ${otherStruct.location.column})")
+            throw RuntimeException("Structure ${this.name}.${name} already defined in ${otherStruct.location.source.location}:(${otherStruct.location.line}, ${otherStruct.location.column})")
         }
         structures[struct.name] = struct
     }

@@ -34,7 +34,15 @@ enum class FunctionUsage {
 }
 
 data class FunctionType(val location: Location, val module: String, val name: String, val extern: Boolean,
-                        val parameters: MutableList<NamedType> = mutableListOf<NamedType>(), var returnType: TypeInfo = UnknownType, val usage: FunctionUsage = FunctionUsage.Function) : TypeInfo
+                        val parameters: MutableList<NamedType> = mutableListOf<NamedType>(), var returnType: TypeInfo = UnknownType, val usage: FunctionUsage = FunctionUsage.Function) : TypeInfo {
+    override fun toString(): String {
+        return "FunctionType(module=${module}, name=${name})"
+    }
+
+    fun fullyQualifiedName(): String {
+        return if (module.isEmpty()) name else "${module}.${name}"
+    }
+}
 
 val Int8Type = PrimitiveType("int8", true)
 val Int16Type = PrimitiveType("int16", true)

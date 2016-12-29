@@ -54,7 +54,7 @@ private fun compilationUnit(state: ParserState): CompilationUnitNode {
     val structs = mutableListOf<StructureNode>()
 
     while (!match(state, TokenType.EOF)) {
-        if (match(state, TokenType.FUNCTION) or match(state, TokenType.EXTERN)) {
+        if (match(state, TokenType.FUNCTION) || match(state, TokenType.EXTERN)) {
             functions.add(function(state))
         } else if (match(state, TokenType.STRUCTURE)) {
             structs.add(structure(state))
@@ -115,6 +115,7 @@ private fun structure(state: ParserState): StructureNode {
     val functions = mutableListOf<FunctionNode>()
     while (!match(state, TokenType.END)) {
         if (match(state, TokenType.FUNCTION)) functions.add(function(state))
+        else if (match(state, TokenType.CONSTRUCTOR)) functions.add(function(state, true))
         else fields.add(variableDeclaration(state, false))
     }
     if (!match(state, TokenType.END, true)) error(state, "Expected end")
@@ -139,6 +140,7 @@ private fun function(state: ParserState, isConstructor: Boolean = false): Functi
 
     var returnType: TypeNode = NoTypeNode(firstToken, firstToken)
     if (match(state, TokenType.COLON, true)) {
+        if (isConstructor) error(state, "Constructors can not return a value")
         returnType = type(state)
     }
 
@@ -192,6 +194,7 @@ private fun type(state: ParserState): TypeNode {
     }
 
     var isOptional = match(state, TokenType.QUESTION, true)
+
     return TypeNode(identifiers, isArray, isOptional, firstToken, state.last())
 }
 
@@ -412,7 +415,7 @@ private fun factor(state: ParserState): ExpressionNode {
         return NullLiteralNode(firstToken, state.last())
     }
 
-    if (match(state, TokenType.TRUE) or match(state, TokenType.FALSE)) {
+    if (match(state, TokenType.TRUE) || match(state, TokenType.FALSE)) {
         return BooleanLiteralNode(next(state), firstToken, state.last())
     }
     if (match(state, TokenType.NUMBER)) {

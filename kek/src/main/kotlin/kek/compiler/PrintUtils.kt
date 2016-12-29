@@ -26,7 +26,7 @@ fun printAst(cu: CompilationUnitNode): String {
 }
 
 fun printAstNode(p: String, n: AstNode, nodes: StringBuffer, edges: StringBuffer): String {
-    when(n) {
+    when (n) {
         is StructureNode -> return printStructureDefinition(n, nodes, edges)
         is FunctionNode -> return printFunctionDefinition(p, n, nodes, edges)
         is BlockNode -> return printBlock(p, n, nodes, edges)
@@ -57,7 +57,7 @@ fun printAstNode(p: String, n: AstNode, nodes: StringBuffer, edges: StringBuffer
     }
 }
 
-fun  printBlock(p: String, n: BlockNode, nodes: StringBuffer, edges: StringBuffer): String {
+fun printBlock(p: String, n: BlockNode, nodes: StringBuffer, edges: StringBuffer): String {
     return printAstNodeList(p, n.statements, nodes, edges)
 }
 
@@ -283,19 +283,33 @@ fun printModule(module: Module): String {
     buffer.appendln("\tImports")
     for (i in module.imports())
         buffer.appendln("\t\t${i}")
+
     buffer.appendln("\tPrimitive Types")
     for (t in module.primitiveTypes().values)
         buffer.appendln("\t\t${t}")
+
     buffer.appendln("\tStructures")
     for (s in module.structures().values) {
         buffer.appendln("\t\t${s.name}")
+
+        buffer.appendln("\t\t\tFields")
         for (f in s.fields) {
-            buffer.appendln("\t\t\t${f.name}: ${f.type}")
+            buffer.appendln("\t\t\t\t${f.name}: ${f.type}")
+        }
+
+        buffer.appendln("\t\t\tFunctions")
+        for (f in s.functions) {
+            buffer.appendln("\t\t\t\t${f.name}")
+            for (p in f.parameters) {
+                buffer.appendln("\t\t\t\t\t${p.name}: ${p.type}")
+            }
+            buffer.appendln("\t\t\t\t\treturn: ${f.returnType}")
         }
         buffer.appendln()
     }
+
     buffer.appendln("\tFunctions")
-    for (fl in module.functions().values)
+    for (fl in module.functions().values) {
         for (f in fl) {
             buffer.appendln("\t\t${f.name}")
             for (p in f.parameters) {
@@ -303,5 +317,7 @@ fun printModule(module: Module): String {
             }
             buffer.appendln("\t\t\treturn: ${f.returnType}")
         }
+    }
+
     return buffer.toString()
 }

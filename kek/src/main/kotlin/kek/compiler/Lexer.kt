@@ -164,7 +164,7 @@ private fun tryMatchIdentifierOrKeyword(state: LexerState) {
 
     val start = state.index
     val column = state.column
-    while (Character.isLetter(c) or Character.isDigit(c) or (c == '_')) {
+    while (Character.isLetter(c) || Character.isDigit(c) || (c == '_')) {
         nextChar(state)
         if (isEOF(state)) {
             break;
@@ -235,7 +235,7 @@ private fun tryMatchNumber(state: LexerState) {
     }
 
     if (c != '.') {
-        if((c == 'd') or (c == 'l')) nextChar(state)
+        if((c == 'd') || (c == 'l')) nextChar(state)
         state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.sourceCode.substring(start, state.index)))
         return
     }
@@ -256,7 +256,7 @@ private fun tryMatchNumber(state: LexerState) {
         c = state.input.sourceCode[state.index]
     }
 
-    if((c == 'd') or (c == 'l')) nextChar(state)
+    if((c == 'd') || (c == 'l')) nextChar(state)
     state.tokens.add(Token(TokenType.NUMBER, start, state.line, column, state.input.sourceCode.substring(start, state.index)))
 }
 
