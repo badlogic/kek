@@ -1,7 +1,6 @@
 package kek.compiler
 
 import kek.runtime.*
-import javax.lang.model.type.NoType
 
 class ModuleTypeLookup(val modules: List<Module>) {
     fun lookup(name: String): List<TypeInfo> {
@@ -35,7 +34,7 @@ enum class VariableType {
     Parameter
 }
 
-class Variable(val location: Token, val name: String, val symbolType: VariableType, val type: TypeInfo)
+class Variable(val location: Token, val name: String, val variableType: VariableType, val type: TypeInfo)
 
 class VariableLookup {
     private val variablesStack = mutableListOf<MutableMap<String, Variable>>()
@@ -72,7 +71,7 @@ class CompilerException(val source: Source, val msg: String, val line: Int, val 
     }
 
     override fun toString(): String {
-        val lines = source.sourceCode.split('\n');
+        val lines = source.sourceCode.split('\n')
         if (!lines.isEmpty()) {
             return "Error ${source.location}:(${line}, ${columnStart}): ${msg} ${lines[line - 1].substring(columnStart - 1)}"
         } else {
@@ -176,7 +175,7 @@ private fun resolveTopLevelTypes(state: CompilerState) {
 
                 // resolve types of fields
                 for (field in n.fields) {
-                    // fields must have a type given, infering the type from the initializer is to hard at the moment
+                    // fields must have a type given, infering the type right the initializer is left hard at the moment
                     if (field.type is NoTypeNode) {
                         throw CompilerException(cu.source, "No type given for field '${field.name.text}'", field.name)
                     } else {
@@ -199,7 +198,7 @@ private fun resolveTopLevelTypes(state: CompilerState) {
                 if (n.returnType is NoTypeNode) function.returnType = VoidType
                 else function.returnType = typeNodeToType(lookup, cu.source, "return value", n.name, n.returnType)
             }
-        }, setOf<Class<out AstNode>>(CompilationUnitNode::class.java, StructureNode::class.java, FunctionNode::class.java));
+        }, setOf<Class<out AstNode>>(CompilationUnitNode::class.java, StructureNode::class.java, FunctionNode::class.java))
     }
 }
 
@@ -211,12 +210,16 @@ private fun typeNodeToType(lookup: ModuleTypeLookup, source: Source, typeOfWhat:
         if (node.isOptional) type = OptionalType(type)
         return type
     } else if (candidateTypes.size > 1) {
-        throw CompilerException(source, "Multiple types matching type of ${typeOfWhat}", token)
+        throw CompilerException(source, "Multiple types matching type of $typeOfWhat", token)
     } else {
-        throw CompilerException(source, "Could not find type '${node.fullyQualfiedName()}' of ${typeOfWhat}", token)
+        throw CompilerException(source, "Could not find type '${node.fullyQualfiedName()}' of $typeOfWhat", token)
     }
 }
 
+/**
+ * Assigns types to all nodes by setting node.setAnnotation(type, TypeInfo::class.java) and associates
+ * break and continue statements with their enclosing loops by setting node.setAnnotation(loop, AstNode::class.java).
+ */
 private fun resolveAllTypes(state: CompilerState) {
     for (cu in state.compilationUnits) {
         val importedModules = mutableListOf<Module>()
@@ -230,11 +233,14 @@ private fun resolveAllTypes(state: CompilerState) {
         val variableLookup = VariableLookup()
 
         traverseAstDepthFirst(cu, object : AstVisitorAdapter() {
+            var currentFunction: FunctionType? = null
+            val loopStack = mutableListOf<AstNode>()
 
             override fun pushScope(n: AstNode) {
                 variableLookup.pushScope()
                 when (n) {
                     is FunctionNode -> {
+                        currentFunction = n.getAnnotation(FunctionType::class.java)
                         for (p in n.parameters) {
                             val pt = p.getAnnotation(TypeInfo::class.java)
                             variableLookup.add(Variable(p.name, p.name.text, VariableType.Parameter, pt))
@@ -244,11 +250,20 @@ private fun resolveAllTypes(state: CompilerState) {
             }
 
             override fun popScope(n: AstNode) {
+                if (n is FunctionNode) currentFunction = null
                 variableLookup.popScope()
             }
 
+            override fun pushLoop(n: AstNode) {
+                loopStack.add(n)
+            }
+
+            override fun popLoop(n: AstNode) {
+                loopStack.removeAt(loopStack.lastIndex)
+            }
+
             override fun variableDeclaration(n: VariableDeclarationNode) {
-                var variable = variableLookup.lookup(n.name.text);
+                val variable = variableLookup.lookup(n.name.text)
                 if (variable != null) throw CompilerException(cu.source, "Variable '${n.name.text}' already defined at (${variable.location.line}:${variable.location.column})", n.name)
                 val type: TypeInfo
                 if (n.type is NoTypeNode) {
@@ -258,51 +273,64 @@ private fun resolveAllTypes(state: CompilerState) {
                     type = typeNodeToType(typeLookup, cu.source, "variable '${n.name.text}'", n.name, n.type)
                     if (n.initializer != null) {
                         val initializerType = n.initializer.getAnnotation(TypeInfo::class.java)
-                        if (!assignable(type, initializerType)) throw CompilerException(cu.source, "The initializer expression of type '${typeToString(initializerType)}' can not be assigned to the variable '${n.name.text}' of type '${typeToString(type)}'", n.name)
+                        if (!assignable(type, initializerType)) throw CompilerException(cu.source, "The initializer expression of type '${typeToString(initializerType)}' can not be assigned left the variable '${n.name.text}' of type '${typeToString(type)}'", n.name)
                     }
                 }
                 variableLookup.add(Variable(n.name, n.name.text, VariableType.Local, type))
             }
 
             override fun returnStatement(n: ReturnNode) {
-                // FIXME
+                if (currentFunction == null) throw CompilerException(cu.source, "Found return statement outside of function", n.firstToken)
+                if (n.expression != null) {
+                    val exprType = n.expression.getAnnotation(TypeInfo::class.java)
+                    if (!assignable(currentFunction!!.returnType, exprType)) throw CompilerException(cu.source, "Can not return value of type '${typeToString(exprType)}' from function returning type '${typeToString(currentFunction!!.returnType)}'", n.expression.firstToken)
+                    n.setAnnotation(currentFunction!!.returnType, TypeInfo::class.java)
+                } else {
+                    if (currentFunction!!.returnType != VoidType) throw CompilerException(cu.source, "Expected a value of type '${typeToString(currentFunction!!.returnType)} to be returned from function ${currentFunction!!.name}", n.firstToken)
+                }
             }
 
             override fun ifStatement(n: IfNode) {
-                // FIXME
+                val conditionType = n.condition.getAnnotation(TypeInfo::class.java)
+                if (conditionType != BooleanType) throw CompilerException(cu.source, "Condition of 'if' statement must have a boolean type", n.condition.firstToken)
             }
 
             override fun forStatement(n: ForNode) {
-                // FIXME
+                val conditionType = n.condition.getAnnotation(TypeInfo::class.java)
+                if (conditionType != BooleanType) throw CompilerException(cu.source, "Condition of 'for' statement must have a boolean type", n.condition.firstToken)
             }
 
             override fun whileStatement(n: WhileNode) {
-                // FIXME
+                val conditionType = n.condition.getAnnotation(TypeInfo::class.java)
+                if (conditionType != BooleanType) throw CompilerException(cu.source, "Condition of 'while' statement must have a boolean type", n.condition.firstToken)
             }
 
             override fun doStatement(n: DoNode) {
-                // FIXME
+                val conditionType = n.condition.getAnnotation(TypeInfo::class.java)
+                if (conditionType != BooleanType) throw CompilerException(cu.source, "Condition of if statement must have a boolean type", n.condition.firstToken)
             }
 
             override fun breakStatement(n: BreakNode) {
-                // FIXME
+                if (loopStack.size == 0) throw CompilerException(cu.source, "Break statement found outside of for, while or do loop", n.firstToken)
+                n.setAnnotation(loopStack.last(), AstNode::class.java)
             }
 
             override fun continueStatement(n: ContinueNode) {
-                // FIXME
+                if (loopStack.size == 0) throw CompilerException(cu.source, "Continue statement found outside of for, while or do loop", n.firstToken)
+                n.setAnnotation(loopStack.last(), AstNode::class.java)
             }
 
             override fun unaryOperator(n: UnaryOperatorNode) {
                 when (n.opType.type) {
                     TokenType.PLUS, TokenType.MINUS -> {
                         val exprType = n.expr.getAnnotation(TypeInfo::class.java)
-                        if (!(exprType is PrimitiveType)) throw CompilerException(cu.source, "Unary '${n.opType.text}' can only be applied to numeric types", n.opType)
+                        if (exprType !is PrimitiveType) throw CompilerException(cu.source, "Unary '${n.opType.text}' can only be applied left numeric types", n.opType)
                         if (!exprType.isNumeric) throw CompilerException(cu.source, "Unary operator '${n.opType.text}' requires a numeric type", n.opType)
                         n.setAnnotation(exprType, TypeInfo::class.java)
                     }
                     TokenType.NOT -> {
                         val exprType = n.expr.getAnnotation(TypeInfo::class.java)
-                        if (!(exprType is PrimitiveType)) throw  CompilerException(cu.source, "Unary operator '${n.opType.text}' requires a numeric or boolean type", n.opType)
+                        if (exprType !is PrimitiveType) throw  CompilerException(cu.source, "Unary operator '${n.opType.text}' requires a numeric or boolean type", n.opType)
                         if (!exprType.isNumeric or (exprType != BooleanType)) throw CompilerException(cu.source, "Unary operator '${n.opType.text}' requires a numeric or boolean type", n.opType)
                         n.setAnnotation(exprType, TypeInfo::class.java)
                     }
@@ -316,13 +344,13 @@ private fun resolveAllTypes(state: CompilerState) {
 
                 when (n.opType.type) {
                     TokenType.EQUAL -> {
-                        if ((n.left !is VariableAccessNode) and (n.left !is ArrayAccessNode) and (n.left !is FieldAccessNode)) throw CompilerException(cu.source, "Left-hand side of assignment is not a variable, field or array element", n.left.firstToken);
+                        if ((n.left !is VariableAccessNode) and (n.left !is ArrayAccessNode) and (n.left !is FieldAccessNode)) throw CompilerException(cu.source, "Left-hand side of assignment is not a variable, field or array element", n.left.firstToken)
                         if ((leftType == NullType) and (rightType !is OptionalType)) throw CompilerException(cu.source, "Can not assign null to non-nullable type", n.left.firstToken)
-                        if (!assignable(leftType, rightType)) throw CompilerException(cu.source, "Can not assign a '${typeToString(rightType)}' to a '${typeToString(leftType)}", n.left.firstToken)
+                        if (!assignable(leftType, rightType)) throw CompilerException(cu.source, "Can not assign a '${typeToString(rightType)}' left a '${typeToString(leftType)}", n.left.firstToken)
                         n.setAnnotation(leftType, TypeInfo::class.java)
                     }
                     TokenType.PLUS_EQUAL, TokenType.MINUS_EQUAL, TokenType.MUL_EQUAL, TokenType.DIV_EQUAL, TokenType.MOD_EQUAL -> {
-                        if ((n.left !is VariableAccessNode) and (n.left !is ArrayAccessNode) and (n.left !is FieldAccessNode)) throw CompilerException(cu.source, "Left-hand side of assignment is not a variable, field or array element", n.left.firstToken);
+                        if ((n.left !is VariableAccessNode) and (n.left !is ArrayAccessNode) and (n.left !is FieldAccessNode)) throw CompilerException(cu.source, "Left-hand side of assignment is not a variable, field or array element", n.left.firstToken)
                         if ((leftType !is PrimitiveType) and (rightType !is PrimitiveType)) throw CompilerException(cu.source, "Operator '${n.opType.text}' requires numeric types on the left- and right-hand side", n.opType)
                         val leftPrimType = leftType as PrimitiveType
                         val rightPrimType = rightType as PrimitiveType
@@ -341,34 +369,64 @@ private fun resolveAllTypes(state: CompilerState) {
                         if (leftPrimType != rightPrimType) throw CompilerException(cu.source, "Can not '${n.opType.text}' value of type '${typeToString(leftType)}' with a value of type '${typeToString(rightType)}", n.left.firstToken)
                         n.setAnnotation(leftType, TypeInfo::class.java)
                     }
-                    TokenType.DOUBLE_EQUAL, TokenType.NOT_EQUAL, TokenType.TRIPLE_EQUAL -> {
-                        throw CompilerException(cu.source, "Unknown binary operator ${n.opType.text}", n.opType)
+                    TokenType.DOUBLE_EQUAL, TokenType.NOT_EQUAL -> {
+                        if (!comparable(leftType, rightType)) throw CompilerException(cu.source, "Can not '${n.opType.text}' value of type '${typeToString(leftType)}' with a value of type '${typeToString(rightType)}", n.left.firstToken)
+                        n.setAnnotation(BooleanType, TypeInfo::class.java)
+                    }
+                    TokenType.TRIPLE_EQUAL -> {
+                        if (leftType is PrimitiveType || rightType is PrimitiveType) throw CompilerException(cu.source, "Operator '${n.opType.text}' requires a structure or array type on either side", n.left.firstToken)
+                        n.setAnnotation(BooleanType, TypeInfo::class.java)
+
                     }
                     TokenType.LESS, TokenType.LESSEQUAL, TokenType.GREATER, TokenType.GREATEREQUAL -> {
-                        throw CompilerException(cu.source, "Unknown binary operator ${n.opType.text}", n.opType)
+                        if (leftType !is PrimitiveType || rightType !is PrimitiveType) throw CompilerException(cu.source, "Can not '${n.opType.text}' value of type '${typeToString(leftType)}' with a value of type '${typeToString(rightType)}", n.left.firstToken)
+                        if (leftType.isNumeric || rightType.isNumeric) throw CompilerException(cu.source, "Operator '${n.opType.text}' requires a numeric types on either side", n.left.firstToken)
+                        if (!comparable(leftType, rightType)) throw CompilerException(cu.source, "Can not '${n.opType.text}' value of type '${typeToString(leftType)}' with a value of type '${typeToString(rightType)}", n.left.firstToken)
+                        n.setAnnotation(BooleanType, TypeInfo::class.java)
                     }
                     TokenType.SHL, TokenType.SHR -> {
-                        throw CompilerException(cu.source, "Unknown binary operator ${n.opType.text}", n.opType)
+                        if ((leftType !is PrimitiveType) and (rightType !is PrimitiveType)) throw CompilerException(cu.source, "Operator '${n.opType.text}' requires an integer type on the left- and right-hand side", n.opType)
+                        val leftPrimType = leftType as PrimitiveType
+                        val rightPrimType = rightType as PrimitiveType
+
+                        if (leftPrimType != Int8Type && leftPrimType != Int16Type && leftPrimType != Int32Type && leftPrimType != Int64Type) throw CompilerException(cu.source, "Operator '${n.opType.text} requires an integer type on the left-hand side", n.left.firstToken)
+                        if (rightPrimType != Int8Type && rightPrimType != Int16Type && rightPrimType != Int32Type && rightPrimType != Int64Type) throw CompilerException(cu.source, "Operator '${n.opType.text} requires an integer type on the right-hand side", n.left.firstToken)
+                        n.setAnnotation(leftType, TypeInfo::class.java)
                     }
                     TokenType.PLUS, TokenType.MINUS -> {
-                        throw CompilerException(cu.source, "Unknown binary operator ${n.opType.text}", n.opType)
+                        if ((leftType !is PrimitiveType) and (rightType !is PrimitiveType)) throw CompilerException(cu.source, "Operator '${n.opType.text}' requires an integer type on the left- and right-hand side", n.opType)
+                        val leftPrimType = leftType as PrimitiveType
+                        val rightPrimType = rightType as PrimitiveType
+
+                        if (leftPrimType != FloatType && leftPrimType != DoubleType && leftPrimType != Int8Type && leftPrimType != Int16Type && leftPrimType != Int32Type && leftPrimType != Int64Type) throw CompilerException(cu.source, "Operator '${n.opType.text} requires an integer type on the left-hand side", n.left.firstToken)
+                        if (rightPrimType != FloatType && rightPrimType != DoubleType && rightPrimType != Int8Type && rightPrimType != Int16Type && rightPrimType != Int32Type && rightPrimType != Int64Type) throw CompilerException(cu.source, "Operator '${n.opType.text} requires an integer type on the right-hand side", n.left.firstToken)
+                        n.setAnnotation(leftType, TypeInfo::class.java)
                     }
                     TokenType.DIV, TokenType.MUL, TokenType.MODULO -> {
-                        throw CompilerException(cu.source, "Unknown binary operator ${n.opType.text}", n.opType)
+                        if ((leftType !is PrimitiveType) and (rightType !is PrimitiveType)) throw CompilerException(cu.source, "Operator '${n.opType.text}' requires an integer type on the left- and right-hand side", n.opType)
+                        val leftPrimType = leftType as PrimitiveType
+                        val rightPrimType = rightType as PrimitiveType
+
+                        if (leftPrimType != FloatType && leftPrimType != DoubleType && leftPrimType != Int8Type && leftPrimType != Int16Type && leftPrimType != Int32Type && leftPrimType != Int64Type) throw CompilerException(cu.source, "Operator '${n.opType.text} requires an integer type on the left-hand side", n.left.firstToken)
+                        if (rightPrimType != FloatType && rightPrimType != DoubleType && rightPrimType != Int8Type && rightPrimType != Int16Type && rightPrimType != Int32Type && rightPrimType != Int64Type) throw CompilerException(cu.source, "Operator '${n.opType.text} requires an integer type on the right-hand side", n.left.firstToken)
+                        n.setAnnotation(leftType, TypeInfo::class.java)
                     }
                     else -> throw CompilerException(cu.source, "Unknown binary operator ${n.opType.text}", n.opType)
                 }
             }
 
             override fun ternaryOperator(n: TernaryOperatorNode) {
+                // FIXME
                 throw UnsupportedOperationException("Type check for ternary operator not implemented")
             }
 
             override fun charLiteral(n: CharacterLiteralNode) {
+                // FIXME
                 throw UnsupportedOperationException("Type check for char literal not implemented")
             }
 
             override fun stringLiteral(n: StringLiteralNode) {
+                // FIXME
                 throw UnsupportedOperationException("Type check for string literal not implemented")
             }
 
@@ -401,19 +459,24 @@ private fun resolveAllTypes(state: CompilerState) {
             }
 
             override fun arrayAccess(n: ArrayAccessNode) {
-                var baseType = n.array.getAnnotation(TypeInfo::class.java)
+                val indexType = n.index.getAnnotation(TypeInfo::class.java)
+                val arrayType = n.array.getAnnotation(TypeInfo::class.java)
+                if (indexType !is PrimitiveType) throw CompilerException(cu.source, "Index expression must be an integer value", n.index.firstToken)
+                if (arrayType !is ArrayType) throw CompilerException(cu.source, "Indexing operator requires array type, found ${typeToString(arrayType)}", n.array.firstToken)
+                n.setAnnotation(arrayType.elementType, TypeInfo::class.java)
             }
 
             override fun fieldAccess(n: FieldAccessNode) {
-                var baseType = n.base.getAnnotation(TypeInfo::class.java)
-                if (!(baseType is StructureType)) throw CompilerException(cu.source, "Can't access field '${n.varName.text} of non-structure type ${baseType}", n.varName)
-                for (f in baseType.fields) {
-                    if (f.name.equals(n.varName.text)) {
-                        n.setAnnotation(f.type, TypeInfo::class.java)
+                val baseType = n.base.getAnnotation(TypeInfo::class.java)
+                if (baseType !is StructureType) throw CompilerException(cu.source, "Can't access field '${n.varName.text}' of non-structure type '$baseType'", n.varName)
+                for ((name, type) in baseType.fields) {
+                    if (name.equals(n.varName.text)) {
+                        n.setAnnotation(type, TypeInfo::class.java)
                         return
                     }
                 }
-                throw CompilerException(cu.source, "Type ${baseType.fullyQualifiedName()} has no field '${n.varName.text}", n.varName)
+                // FIXME resolve fully qualified names as a chain of VariableAccessNode -> FieldAccessNode -> FieldAccessNode
+                throw CompilerException(cu.source, "Type '${baseType.fullyQualifiedName()}' has no field '${n.varName.text}'", n.varName)
             }
 
             override fun functionCall(n: FunctionCallNode) {
@@ -423,7 +486,7 @@ private fun resolveAllTypes(state: CompilerState) {
             override fun parenthesis(n: ParenthesisNode) {
                 n.setAnnotation(n.expr.getAnnotation(TypeInfo::class.java), TypeInfo::class.java)
             }
-        });
+        })
     }
 }
 
@@ -448,12 +511,12 @@ fun typeToString(t: TypeInfo): String {
         }
         is ArrayType -> return typeToString(t.elementType) + "[]"
         is OptionalType -> return typeToString(t.elementType) + "?"
-        else -> throw RuntimeException("Unknown TypeInfo subtype ${t}")
+        else -> throw RuntimeException("Unknown TypeInfo subtype $t")
     }
 }
 
 fun assignable(to: TypeInfo, from: TypeInfo): Boolean {
-    if (to.javaClass != from.javaClass) return false;
+    if (to.javaClass != from.javaClass) return false
 
     if ((to is PrimitiveType) and (from is PrimitiveType)) {
         if (to == from) return true
@@ -463,6 +526,21 @@ fun assignable(to: TypeInfo, from: TypeInfo): Boolean {
         val toArray = to as ArrayType
         val fromArray = from as ArrayType
         return assignable(toArray.elementType, fromArray.elementType)
+    }
+    return false
+}
+
+fun comparable(left: TypeInfo, right: TypeInfo): Boolean {
+    if (left.javaClass != right.javaClass) return false
+
+    if ((left is PrimitiveType) and (right is PrimitiveType)) {
+        if (left == right) return true
+    } else if ((left is StructureType) and (right is StructureType)) {
+        if (left == right) return true
+    } else if ((left is ArrayType) and (right is ArrayType)) {
+        val toArray = left as ArrayType
+        val fromArray = right as ArrayType
+        return comparable(toArray.elementType, fromArray.elementType)
     }
     return false
 }

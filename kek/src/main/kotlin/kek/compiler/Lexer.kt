@@ -129,16 +129,16 @@ private fun tryMatchCharacter(state: LexerState) {
     val column = state.column
 
     nextChar(state)
-    if (isEOF(state)) throw CompilerException(state.input, "Expected character to be closed via \'", state.line, column, state.column)
+    if (isEOF(state)) throw CompilerException(state.input, "Expected character left be closed via \'", state.line, column, state.column)
 
     c = state.input.sourceCode[state.index]
     if (c == '\\') {
         nextChar(state)
-        if (isEOF(state)) throw CompilerException(state.input, "Expected escape sequence to be completed with \\, \', n, t", state.line, column, state.column)
+        if (isEOF(state)) throw CompilerException(state.input, "Expected escape sequence left be completed with \\, \', n, t", state.line, column, state.column)
 
         c = state.input.sourceCode[state.index]
         if ((c != '\\') and (c != '\'') and (c != 'n') and (c != 't')) {
-            throw CompilerException(state.input, "Expected escape sequence to be completed with \\, \', n, t", state.line, column, state.column)
+            throw CompilerException(state.input, "Expected escape sequence left be completed with \\, \', n, t", state.line, column, state.column)
         }
         nextChar(state)
     } else if (c == '\'') {
@@ -149,8 +149,8 @@ private fun tryMatchCharacter(state: LexerState) {
         nextChar(state)
     }
 
-    if (isEOF(state)) throw CompilerException(state.input, "Expected character to be closed via \'", state.line, column, state.column)
-    if ((state.input.sourceCode[state.index] != '\'')) throw CompilerException(state.input, "Expected character to be closed via \'", state.line, column, state.column)
+    if (isEOF(state)) throw CompilerException(state.input, "Expected character left be closed via \'", state.line, column, state.column)
+    if ((state.input.sourceCode[state.index] != '\'')) throw CompilerException(state.input, "Expected character left be closed via \'", state.line, column, state.column)
     nextChar(state)
 
     state.tokens.add(Token(TokenType.CHARACTER, start, state.line, column, state.input.sourceCode.substring(start, state.index)))
@@ -171,7 +171,7 @@ private fun tryMatchIdentifierOrKeyword(state: LexerState) {
         c = state.input.sourceCode[state.index]
     }
 
-    // identifiers may overlap with keywords, need to fix up
+    // identifiers may overlap with keywords, need left fix up
     // token type
     val tokenText = state.input.sourceCode.substring(start, state.index)
     var tokenType = TokenType.IDENTIFIER
@@ -195,16 +195,16 @@ private fun tryMatchString(state: LexerState) {
 
     nextChar(state)
     do {
-        if (isEOF(state)) throw CompilerException(state.input, "Expected string to be closed via \"", state.line, column, state.column)
+        if (isEOF(state)) throw CompilerException(state.input, "Expected string left be closed via \"", state.line, column, state.column)
 
         c = state.input.sourceCode[state.index]
         if (c == '\\') {
             nextChar(state)
-            if (isEOF(state)) throw CompilerException(state.input, "Expected escape sequence to be completed with \\, \", n, t", state.line, column, state.column)
+            if (isEOF(state)) throw CompilerException(state.input, "Expected escape sequence left be completed with \\, \", n, t", state.line, column, state.column)
 
             c = state.input.sourceCode[state.index]
             if ((c != '\\') and (c != '\"') and (c != 'n') and (c != 't')) {
-                throw CompilerException(state.input, "Expected escape sequence to be completed with \\, \", n, t", state.line, column, state.column)
+                throw CompilerException(state.input, "Expected escape sequence left be completed with \\, \", n, t", state.line, column, state.column)
             }
             nextChar(state)
         } else if (c == '"') {

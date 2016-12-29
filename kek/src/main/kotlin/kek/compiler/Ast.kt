@@ -94,6 +94,8 @@ class FunctionCallNode(val function: ExpressionNode, val arguments: List<Express
 class ParenthesisNode(val expr: ExpressionNode, firstToken: Token, lastToken: Token) : ExpressionNode(firstToken, lastToken)
 
 interface AstVisitor {
+    fun pushLoop(n: AstNode)
+    fun popLoop(n: AstNode)
     fun pushScope(n: AstNode)
     fun popScope(n: AstNode)
     fun namespace(namespace: String)
@@ -125,6 +127,12 @@ interface AstVisitor {
 }
 
 abstract class AstVisitorAdapter : AstVisitor {
+    override fun pushLoop(n: AstNode) {
+    }
+
+    override fun popLoop(n: AstNode) {
+    }
+
     override fun pushScope(n: AstNode) {
     }
 
@@ -260,22 +268,28 @@ fun traverseAstDepthFirst(ast: AstNode, visitor: AstVisitor, include: Set<Class<
         }
         is ForNode -> {
             visitor.pushScope(ast)
+            visitor.pushLoop(ast)
             for (s in ast.initializer) traverseAstDepthFirst(s, visitor, include)
             traverseAstDepthFirst(ast.condition, visitor, include)
             for (s in ast.increment) traverseAstDepthFirst(s, visitor, include)
             traverseAstDepthFirst(ast.body, visitor, include)
             visitor.forStatement(ast)
+            visitor.popLoop(ast)
             visitor.popScope(ast)
         }
         is WhileNode -> {
+            visitor.pushLoop(ast)
             traverseAstDepthFirst(ast.condition, visitor, include)
             traverseAstDepthFirst(ast.body, visitor, include)
             visitor.whileStatement(ast)
+            visitor.popLoop(ast)
         }
         is DoNode -> {
+            visitor.pushLoop(ast)
             traverseAstDepthFirst(ast.body, visitor, include)
             traverseAstDepthFirst(ast.condition, visitor, include)
             visitor.doStatement(ast)
+            visitor.popLoop(ast)
         }
         is BreakNode -> {
             visitor.breakStatement(ast)
